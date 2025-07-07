@@ -1,0 +1,78 @@
+pool:
+  name: Azure Pipelines
+
+trigger:
+- main   # Runs pipeline on commits to the main branch
+
+variables:
+  buildConfiguration: 'Debug'
+  RestoreBuildProjects: '**/*.csproj'   # Adjust to match your .csproj files
+  TestProjects: '**/tests.csproj'     
+
+steps:
+# Print .NET version
+- script: |
+    echo "Checking .NET version..."
+    dotnet --version
+  displayName: 'Print .NET Version'
+
+# Print environment variables
+- script: |
+    echo "Printing environment variables..."
+    printenv
+  displayName: 'Print Environment Variables'
+
+# Set up the desired .NET SDK version
+- task: UseDotNet@2
+  displayName: 'Install .NET SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '9.0.x'   # Replace with the required SDK version, e.g., 7.0.x or 8.0.x
+
+# Restore project dependencies
+- task: DotNetCoreCLI@2
+  displayName: 'Restore Dependencies'
+  inputs:
+    command: restore
+    projects: '$(RestoreBuildProjects)'
+    verbosityRestore: Normal
+
+# Publish the application (includes build)
+- task: DotNetCoreCLI@2
+  displayName: 'Publish Application'
+  inputs:
+    command: publish
+    publishWebProjects: true
+    arguments: '--configuration $(buildConfiguration) --runtime linux-x64 --output "$(Build.ArtifactStagingDirectory)"'
+    verbosityRestore: Diagnostic
+
+# Run unit tests with code coverage
+- task: DotNetCoreCLI@2
+  displayName: 'Run Tests with Code Coverage'
+  inputs:
+    command: test
+    projects: '$(TestProjects)'
+    arguments: '--configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
+    verbosityRestore: Normal
+
+# Publish test results
+- task: PublishTestResults@2
+  displayName: 'Publish Test Results'
+  inputs:
+    testResultsFiles: '**/*.trx' 
+    testRunTitle: 'Unit Tests'    
+
+# Publish code coverage results
+- task: PublishCodeCoverageResults@2
+  displayName: 'Publish Code Coverage Results'
+  inputs:
+    codeCoverageTool: 'Cobertura'
+    summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+
+# Publish build artifacts
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish Pipeline Artifact'
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'drop'
+    publishLocation: 'pipeline'

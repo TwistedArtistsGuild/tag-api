@@ -1,0 +1,6 @@
+@tag_web_api_HostAddress = https://localhost:5001
+
+GET {{tag_web_api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

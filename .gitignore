@@ -1,0 +1,57 @@
+# Ignore build outputs
+bin/
+obj/
+
+.vscode/ 
+
+inserts.sql
+
+# Ignore user-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignore logs
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.tmp.*
+
+# Ignore Visual Studio Code settings
+.vscode/
+
+# Ignore Rider settings
+.idea/
+
+# Ignore compiled DLLs
+*.dll
+*.exe
+*.pdb
+
+# Ignore NuGet packages
+*.nupkg
+*.snupkg
+packages/
+
+# Ignore generated files
+*.generated.cs
+
+# Ignore coverage reports
+coverage/
+
+# Ignore publish outputs
+publish/
+
+# Ignore secrets
+secrets.json
+
+# Ignore stylecop settings
+stylecop.json
+
+# Ignore other files
+*.DS_Store
+*.lock.json
