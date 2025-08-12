@@ -21,8 +21,8 @@ public class ArtistPermissionsConfiguration : IEntityTypeConfiguration<ArtistPer
             .IsRequired();
 
         builder.HasOne(ap => ap.Artist)
-            .WithMany()
-            .HasForeignKey(ap => ap.ArtistID)
+            .WithOne(a => a.ArtistPermissions)
+            .HasForeignKey<ArtistPermissions>(ap => ap.ArtistID)
             .OnDelete(DeleteBehavior.Cascade);
 
         SeedData(builder);
