@@ -74,7 +74,7 @@ namespace TAGWEBAPI.Models.Configurations
                     APIURLpostfix = "artist", 
                     H1 = "Artist Profile", 
                     H2 = "Create or Update Your Artist Profile", 
-                    H3 = "Tell us about yourself or your group", 
+                    H3 = "Tell us about yourself or your collective of artists", 
                     FormBody = "Fill out the information below to create your artist profile. The title and slug are required.", 
                     FormStyle = "formstyle test", 
                     RequestType = "add/update" 

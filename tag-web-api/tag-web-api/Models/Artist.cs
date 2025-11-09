@@ -9,6 +9,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 
+public enum BusinessEntityType
+{
+    Individual = 0,
+    SoleProprietor = 1,
+    Partnership = 2,
+    LLC = 3,
+    SCorp = 4,
+    CCorp = 5,
+    Other = 6,
+}
+
 public class Artist
 {
     [Key]
@@ -53,8 +64,16 @@ public class Artist
 
     public virtual ICollection<Linker_UserAndArtistToContact>? Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
 
+    // Business entity type for the artist (Individual, LLC, S-Corp, etc.)
+    public BusinessEntityType BusinessEntity { get; set; } = BusinessEntityType.Individual;
+
     public void SetPath(string path)
     {
-        Path = path.ToLower();
+        if (path == null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+
+        Path = path.ToLowerInvariant();
     }
 }

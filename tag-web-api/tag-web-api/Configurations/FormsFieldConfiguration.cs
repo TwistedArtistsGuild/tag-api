@@ -87,7 +87,10 @@ namespace TAGWEBAPI.Models.Configurations
                 new Forms_Field { Forms_FieldID = 103, Forms_MetadataID = 3, Name = "byline", ClassName = "styles.input", Type = "textarea", Placeholder = "Short description (appears under title)", DefaultValue = "", Label = "Byline", Height = "3", Width = "100%", RegexValidationPattern = null },
                 new Forms_Field { Forms_FieldID = 104, Forms_MetadataID = 3, Name = "statement", ClassName = "styles.input", Type = "textarea", Placeholder = "Detailed artist statement", DefaultValue = "", Label = "Statement", Height = "5", Width = "100%", RegexValidationPattern = null },
                 new Forms_Field { Forms_FieldID = 105, Forms_MetadataID = 3, Name = "seotags", ClassName = "styles.input", Type = "text", Placeholder = "Keywords separated by commas", DefaultValue = "", Label = "SEO Search Terms", RegexValidationPattern = null },
-                new Forms_Field { Forms_FieldID = 107, Forms_MetadataID = 3, Name = "since", ClassName = "styles.input", Type = "datetime", Placeholder = "Since", DefaultValue = "", Label = "Since", RegexValidationPattern = null },
+                // Business entity selector for Artist creation: Individual, Sole Proprietor, Partnership, LLC, S-Corp, C-Corp, Other
+                new Forms_Field { Forms_FieldID = 106, Forms_MetadataID = 3, Name = "businessentity", ClassName = "styles.input", Type = "select", Placeholder = "Select business type", DefaultValue = "Individual", Label = "Business Entity", RegexValidationPattern = null },
+                //new Forms_Field { Forms_FieldID = 107, Forms_MetadataID = 3, Name = "since", ClassName = "styles.input", Type = "datetime", Placeholder = "Since", DefaultValue = "", Label = "Since", RegexValidationPattern = null },
+                // 11/9 Removal - should be an auto populated variable at time of creation. 
 
                 // EventForm1 (Event entity)
                 new Forms_Field { Forms_FieldID = 201, Forms_MetadataID = 7, Name = "title", ClassName = "styles.input", Type = "text", Placeholder = "Event Title", DefaultValue = "", Label = "Title", RegexValidationPattern = "validate_string", IsRequired = true },
