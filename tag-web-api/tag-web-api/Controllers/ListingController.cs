@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Text.Json;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 
@@ -42,8 +43,9 @@ namespace TAGWEBAPI.Controllers
                 .ToListAsync();
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Listing>> GetListing(int id)
+        // Mirror frontend convention: byID route to fetch listing by numeric ID
+        [HttpGet("byID/{id}")]
+        public async Task<ActionResult<Listing>> GetListingByID(int id)
         {
             if (_context.Listings == null)
             {
@@ -54,27 +56,6 @@ namespace TAGWEBAPI.Controllers
                 .Include(l => l.ArtCategory)
                 .Include(l => l.ProfilePic)
                 .FirstOrDefaultAsync(l => l.ListingID == id);
-
-            if (listing == null)
-            {
-                return NotFound();
-            }
-
-            return listing;
-        }
-
-        [HttpGet("path/{path}")]
-        public async Task<ActionResult<Listing>> GetListingByPath(string path)
-        {
-            if (_context.Listings == null)
-            {
-                return NotFound();
-            }
-            var listing = await _context.Listings
-                .Include(l => l.Artist)
-                .Include(l => l.ArtCategory)
-                .Include(l => l.ProfilePic)
-                .FirstOrDefaultAsync(l => l.Path == path);
 
             if (listing == null)
             {
@@ -106,26 +87,70 @@ namespace TAGWEBAPI.Controllers
             return listing;
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutListing(int id, Listing listing)
+        [HttpPut("byID/{id}")]
+        public async Task<IActionResult> PutListing(int id)
         {
-            if (id != listing.ListingID)
+            if (_context.Listings == null)
             {
-                return BadRequest("ID mismatch");
+                return NotFound();
             }
 
-            // Ensure the path is valid and unique for this artist
-            if (!ValidPathRegex.IsMatch(listing.Path))
+            var existing = await _context.Listings.FindAsync(id);
+            if (existing == null)
             {
-                return BadRequest("Invalid path format.");
+                return NotFound();
             }
 
-            if (!await IsPathUniqueForArtistAsync(listing.Path, listing.ArtistID, id))
+            // Read raw body to avoid model binding and nested object validation
+            using var reader = new System.IO.StreamReader(Request.Body);
+            var bodyText = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(bodyText))
             {
-                return BadRequest("Path is not unique for this artist.");
+                return BadRequest("Missing listing payload.");
             }
 
-            _context.Entry(listing).State = EntityState.Modified;
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(bodyText);
+            }
+            catch (JsonException)
+            {
+                return BadRequest("Invalid JSON payload.");
+            }
+
+            var root = doc.RootElement;
+            var props = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in root.EnumerateObject()) props[prop.Name] = prop.Value;
+
+            static string GetString(JsonElement el) => el.ValueKind == JsonValueKind.Null ? null : el.GetString();
+
+            // Map allowed properties
+            if (props.TryGetValue("Title", out var p)) existing.Title = GetString(p) ?? existing.Title;
+            if (props.TryGetValue("Description", out p)) existing.Description = GetString(p) ?? existing.Description;
+            if (props.TryGetValue("Price", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var price)) existing.Price = price;
+            if (props.TryGetValue("Path", out p))
+            {
+                var newPath = GetString(p);
+                if (!string.IsNullOrWhiteSpace(newPath) && newPath != existing.Path)
+                {
+                    if (!ValidPathRegex.IsMatch(newPath))
+                    {
+                        return BadRequest("Invalid path format.");
+                    }
+                    if (!props.TryGetValue("ArtistID", out var ap) || !ap.TryGetInt32(out var artistId))
+                    {
+                        artistId = existing.ArtistID;
+                    }
+                    if (!await IsPathUniqueForArtistAsync(newPath, artistId, id))
+                    {
+                        return BadRequest("Path is not unique for this artist.");
+                    }
+                    existing.Path = newPath;
+                }
+            }
+            if (props.TryGetValue("ArtCategoryID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var catId)) existing.ArtCategoryID = catId;
+            if (props.TryGetValue("ProfilePicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var pid)) existing.ProfilePicID = pid;
 
             try
             {

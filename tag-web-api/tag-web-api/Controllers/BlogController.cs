@@ -13,6 +13,8 @@ using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
+using System.Text.Json;
 
 namespace TAGWEBAPI.Controllers
 {
@@ -81,28 +83,77 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBlog(int id, Blog blog)
+        public async Task<IActionResult> PutBlog(int id)
         {
-            if (id != blog.BlogID)
+            // Read raw body to avoid model binding and nested User validation
+            using var reader = new StreamReader(Request.Body);
+            var bodyText = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(bodyText))
             {
-                return BadRequest();
+                return BadRequest("Missing blog payload.");
             }
 
-            // Set current timestamp for Modified field
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(bodyText);
+            }
+            catch (JsonException)
+            {
+                return BadRequest("Invalid JSON payload.");
+            }
+
+            var root = doc.RootElement;
+
+            // Build a case-insensitive map of properties to simplify lookups
+            var props = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in root.EnumerateObject())
+            {
+                props[prop.Name] = prop.Value;
+            }
+
+            // If payload contains an ID, ensure it matches the route
+            if (props.TryGetValue("BlogID", out var idProp) || props.TryGetValue("id", out idProp))
+            {
+                if (idProp.ValueKind == JsonValueKind.Number && idProp.TryGetInt32(out var bodyId))
+                {
+                    if (bodyId != id) return BadRequest("Route id does not match BlogID in payload.");
+                }
+            }
+
+            var blog = await _context.Blogs.FindAsync(id);
+            if (blog == null) return NotFound();
+
+            // Helper to get string values safely
+            static string GetString(JsonElement el) => el.ValueKind == JsonValueKind.Null ? null : el.GetString();
+
+            // Update fields if present. Only check Path uniqueness when Path is changing.
+            if (props.TryGetValue("Body", out var p)) blog.Body = GetString(p) ?? blog.Body;
+            if (props.TryGetValue("Body_Plaintext", out p)) blog.Body_Plaintext = GetString(p) ?? blog.Body_Plaintext;
+            if (props.TryGetValue("Byline", out p)) blog.Byline = GetString(p) ?? blog.Byline;
+            if (props.TryGetValue("Title", out p)) blog.Title = GetString(p) ?? blog.Title;
+
+            if (props.TryGetValue("Path", out p))
+            {
+                var newPath = GetString(p);
+                if (newPath != null && newPath != blog.Path)
+                {
+                    // Only enforce uniqueness when changing the path
+                    if (!await IsPathUniqueAsync(newPath, id))
+                    {
+                        return Conflict("Path is already in use.");
+                    }
+
+                    blog.Path = newPath;
+                }
+            }
+
+            if (props.TryGetValue("UserID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var uid))
+            {
+                blog.UserID = uid;
+            }
+
             blog.Modified = DateTime.UtcNow;
-
-            // Ensure the path is valid and unique
-            if (!ValidPathRegex.IsMatch(blog.Path))
-            {
-                return BadRequest("Invalid path format.");
-            }
-
-            if (!await IsPathUniqueAsync(blog.Path, id))
-            {
-                return Conflict("Path is already in use.");
-            }
-
-            _context.Entry(blog).State = EntityState.Modified;
 
             try
             {
@@ -110,14 +161,8 @@ namespace TAGWEBAPI.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!BlogExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!BlogExists(id)) return NotFound();
+                throw;
             }
 
             return NoContent();
