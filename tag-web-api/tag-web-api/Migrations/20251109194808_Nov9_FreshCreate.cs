@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace tag_web_api.Migrations
 {
     /// <inheritdoc />
-    public partial class NewInitial : Migration
+    public partial class Nov9_FreshCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -663,8 +663,7 @@ namespace tag_web_api.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     OwnerRole = table.Column<bool>(type: "boolean", nullable: false),
                     POS_Authorized = table.Column<bool>(type: "boolean", nullable: false),
-                    ArtistID = table.Column<int>(type: "integer", nullable: false),
-                    ArtistID1 = table.Column<int>(type: "integer", nullable: true)
+                    ArtistID = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -675,11 +674,6 @@ namespace tag_web_api.Migrations
                         principalTable: "Artists",
                         principalColumn: "ArtistID",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ArtistPermissions_Artists_ArtistID1",
-                        column: x => x.ArtistID1,
-                        principalTable: "Artists",
-                        principalColumn: "ArtistID");
                 });
 
             migrationBuilder.CreateTable(
@@ -1232,8 +1226,7 @@ namespace tag_web_api.Migrations
                     { 2, null, "Acrylic Paintings", null, null, "ArtByEm", null, "moon, acrylic", "yes", "Art by Em" },
                     { 3, null, "Fire flow performance", null, null, "QC_Cirque", null, "fire flow, performance art", "Queen City Cirque is comprised of...", "Queen City Cirque" },
                     { 5, null, "Amazing DJ services", null, null, "djKandy", null, "DJ, house", "soooo good", "DJ Kandy" },
-                    { 6, null, "“Saltwater Slide is leading the way for the Texas reggae scene by not only promoting conscious messages through their music, but following through by their actions” — Topshelf Music", null, null, "saltwaterslide", null, "reggea", "Saltwater Slide is a San Antonio-based reggae/rock band that has quickly become a staple in both local and regional circles. Those who are familiar with their music are accustomed to their positive, relatable lyrics, high energy live performances, and active contribution to their local community. You can catch the guys at their annual Reggae Beach Cleanup in Corpus Christi, their band-managed Adopt-A-Spot on Mulberry road in San Antonio, or at venues all throughout Texas and beyond. Saltwater Slide has been inspired by acts like Fortunate Youth, Passafire, The Expanders, Arise Roots, Iya Terra, Tribal Seeds, Dubbest, Roots of a Rebellion, Pepper, The Skints, Rebelution, and more, although their unique style is hard to miss and harder to forget.", "Saltwater Slide" },
-                    { 7, null, "Fire Flow Performance Artist", null, null, "CampfireCirque", null, "fire, poi", "Long statement about how qualified i am!", "Campfire Cirque" }
+                    { 6, null, "“Saltwater Slide is leading the way for the Texas reggae scene by not only promoting conscious messages through their music, but following through by their actions” — Topshelf Music", null, null, "saltwaterslide", null, "reggea", "Saltwater Slide is a San Antonio-based reggae/rock band that has quickly become a staple in both local and regional circles. Those who are familiar with their music are accustomed to their positive, relatable lyrics, high energy live performances, and active contribution to their local community. You can catch the guys at their annual Reggae Beach Cleanup in Corpus Christi, their band-managed Adopt-A-Spot on Mulberry road in San Antonio, or at venues all throughout Texas and beyond. Saltwater Slide has been inspired by acts like Fortunate Youth, Passafire, The Expanders, Arise Roots, Iya Terra, Tribal Seeds, Dubbest, Roots of a Rebellion, Pepper, The Skints, Rebelution, and more, although their unique style is hard to miss and harder to forget.", "Saltwater Slide" }
                 });
 
             migrationBuilder.InsertData(
@@ -1304,7 +1297,9 @@ namespace tag_web_api.Migrations
                     { 13, "Satarah fire performance", 4, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "satarah, aerial, fire, circus", null, null, "satarah", null, null, null, "Satarah Fire Dance", "https://tagpictures.blob.core.windows.net/satarah/satarh_3.webp", null, null },
                     { 14, "Satya performance image", 4, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "satarah, aerial, fire, circus", null, null, "satarah", null, null, null, "Satya Performance", "https://tagpictures.blob.core.windows.net/satarah/satya_4.jpg", null, null },
                     { 15, "Satya portrait", 4, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "satarah, aerial, fire, circus", null, null, "satarah", null, null, null, "Satya", "https://tagpictures.blob.core.windows.net/satarah/satya.jpg", null, null },
-                    { 16, "Graphic", 4, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "satarah, aerial, fire, circus", null, null, "satarah", null, null, null, "Satarah 1", "https://tagpictures.blob.core.windows.net/satarah/satarah_cover.png", null, null }
+                    { 16, "Graphic", 4, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "satarah, aerial, fire, circus", null, null, "satarah", null, null, null, "Satarah 1", "https://tagpictures.blob.core.windows.net/satarah/satarah_cover.png", null, null },
+                    { 17, "Campfire Cirque Logo", 7, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "fire flow, performance art", null, null, "campfirecirque", null, null, null, "Campfire Cirque Logo", "https://tagpictures.blob.core.windows.net/campfirecirque/campfirecirque_logo.png", null, null },
+                    { 18, "Campfire Cirque Cover photo", 7, "artists", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "fire flow, performance art", null, null, "campfirecirque", null, null, null, "Campfire Cirque Cover", "https://tagpictures.blob.core.windows.net/campfirecirque/campfirecirque_cover.png", null, null }
                 });
 
             migrationBuilder.InsertData(
@@ -1350,14 +1345,13 @@ namespace tag_web_api.Migrations
 
             migrationBuilder.InsertData(
                 table: "ArtistPermissions",
-                columns: new[] { "ArtistPermissionsID", "ArtistID", "ArtistID1", "OwnerRole", "POS_Authorized" },
+                columns: new[] { "ArtistPermissionsID", "ArtistID", "OwnerRole", "POS_Authorized" },
                 values: new object[,]
                 {
-                    { 2, 2, null, true, true },
-                    { 3, 3, null, false, false },
-                    { 5, 5, null, false, false },
-                    { 6, 6, null, false, false },
-                    { 7, 7, null, false, false }
+                    { 2, 2, true, true },
+                    { 3, 3, false, false },
+                    { 5, 5, false, false },
+                    { 6, 6, false, false }
                 });
 
             migrationBuilder.InsertData(
@@ -1366,7 +1360,8 @@ namespace tag_web_api.Migrations
                 values: new object[,]
                 {
                     { 1, null, "Tie Dye Artisan", 10, null, "TwistedPassions", 6, "tie dye, art, tshirts", "The best damn tie dye, like EVER.", "Twisted Passions" },
-                    { 4, null, "To learn more about pricing and schedule your time with Satarah Productions please us contact today.", 16, null, "satarah", 1, "dance, bellydancer, aerialist, fire performer, duo", "Satarah is the lovechild of Satya and Sarah Hahn, two passionate and talented professional bellydancers, aerialists and fire performers that have come together to produce fantastic events and entertain the world. Between the two of them, they have been professionally performing for over 20 years, bringing a dynamic and exciting experience wherever they may go. Currently calling Charlotte home, this duo travels near and far to produce and perform at events and teach workshops. They have also recently opened studio Satarah, hosting all types of events in Charlotte.", "Satarah" }
+                    { 4, null, "To learn more about pricing and schedule your time with Satarah Productions please us contact today.", 16, null, "satarah", 1, "dance, bellydancer, aerialist, fire performer, duo", "Satarah is the lovechild of Satya and Sarah Hahn, two passionate and talented professional bellydancers, aerialists and fire performers that have come together to produce fantastic events and entertain the world. Between the two of them, they have been professionally performing for over 20 years, bringing a dynamic and exciting experience wherever they may go. Currently calling Charlotte home, this duo travels near and far to produce and perform at events and teach workshops. They have also recently opened studio Satarah, hosting all types of events in Charlotte.", "Satarah" },
+                    { 7, null, "Fire Flow Performance Artist", 18, null, "CampfireCirque", 17, "fire, poi", "Long statement about how qualified i am!", "Campfire Cirque" }
                 });
 
             migrationBuilder.InsertData(
@@ -1530,8 +1525,7 @@ namespace tag_web_api.Migrations
                     { 4, 3, "Member", 5 },
                     { 5, 3, "Member", 6 },
                     { 8, 5, "Member", 2 },
-                    { 9, 6, "Member", 4 },
-                    { 10, 7, "Member", 1 }
+                    { 9, 6, "Member", 4 }
                 });
 
             migrationBuilder.InsertData(
@@ -1558,11 +1552,12 @@ namespace tag_web_api.Migrations
 
             migrationBuilder.InsertData(
                 table: "ArtistPermissions",
-                columns: new[] { "ArtistPermissionsID", "ArtistID", "ArtistID1", "OwnerRole", "POS_Authorized" },
+                columns: new[] { "ArtistPermissionsID", "ArtistID", "OwnerRole", "POS_Authorized" },
                 values: new object[,]
                 {
-                    { 1, 1, null, true, true },
-                    { 4, 4, null, false, false }
+                    { 1, 1, true, true },
+                    { 4, 4, false, false },
+                    { 7, 7, false, false }
                 });
 
             migrationBuilder.InsertData(
@@ -1572,7 +1567,8 @@ namespace tag_web_api.Migrations
                 {
                     { 1, 1, "Member", 1 },
                     { 6, 4, "Member", 3 },
-                    { 7, 4, "Member", 6 }
+                    { 7, 4, "Member", 6 },
+                    { 10, 7, "Member", 1 }
                 });
 
             migrationBuilder.InsertData(
@@ -1595,12 +1591,7 @@ namespace tag_web_api.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_ArtistPermissions_ArtistID",
                 table: "ArtistPermissions",
-                column: "ArtistID");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ArtistPermissions_ArtistID1",
-                table: "ArtistPermissions",
-                column: "ArtistID1",
+                column: "ArtistID",
                 unique: true);
 
             migrationBuilder.CreateIndex(

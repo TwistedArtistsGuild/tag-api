@@ -594,7 +594,9 @@ namespace tag_web_api.Migrations
                             ArtistID = 7,
                             Applied = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Byline = "Fire Flow Performance Artist",
+                            CoverPicID = 18,
                             Path = "CampfireCirque",
+                            ProfilePicID = 17,
                             SEOTags = "fire, poi",
                             Statement = "Long statement about how qualified i am!",
                             Title = "Campfire Cirque"
@@ -612,9 +614,6 @@ namespace tag_web_api.Migrations
                     b.Property<int>("ArtistID")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("ArtistID1")
-                        .HasColumnType("integer");
-
                     b.Property<bool>("OwnerRole")
                         .HasColumnType("boolean");
 
@@ -623,9 +622,7 @@ namespace tag_web_api.Migrations
 
                     b.HasKey("ArtistPermissionsID");
 
-                    b.HasIndex("ArtistID");
-
-                    b.HasIndex("ArtistID1")
+                    b.HasIndex("ArtistID")
                         .IsUnique();
 
                     b.ToTable("ArtistPermissions");
@@ -3066,6 +3063,30 @@ namespace tag_web_api.Migrations
                             Path = "satarah",
                             Title = "Satarah 1",
                             URL = "https://tagpictures.blob.core.windows.net/satarah/satarah_cover.png"
+                        },
+                        new
+                        {
+                            PictureID = 17,
+                            AltText = "Campfire Cirque Logo",
+                            ArtistID = 7,
+                            Context = "artists",
+                            Created = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "fire flow, performance art",
+                            Path = "campfirecirque",
+                            Title = "Campfire Cirque Logo",
+                            URL = "https://tagpictures.blob.core.windows.net/campfirecirque/campfirecirque_logo.png"
+                        },
+                        new
+                        {
+                            PictureID = 18,
+                            AltText = "Campfire Cirque Cover photo",
+                            ArtistID = 7,
+                            Context = "artists",
+                            Created = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "fire flow, performance art",
+                            Path = "campfirecirque",
+                            Title = "Campfire Cirque Cover",
+                            URL = "https://tagpictures.blob.core.windows.net/campfirecirque/campfirecirque_cover.png"
                         });
                 });
 
@@ -3902,14 +3923,10 @@ namespace tag_web_api.Migrations
             modelBuilder.Entity("TAGWEBAPI.Models.ArtistPermissions", b =>
                 {
                     b.HasOne("TAGWEBAPI.Models.Artist", "Artist")
-                        .WithMany()
-                        .HasForeignKey("ArtistID")
+                        .WithOne("ArtistPermissions")
+                        .HasForeignKey("TAGWEBAPI.Models.ArtistPermissions", "ArtistID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("TAGWEBAPI.Models.Artist", null)
-                        .WithOne("ArtistPermissions")
-                        .HasForeignKey("TAGWEBAPI.Models.ArtistPermissions", "ArtistID1");
 
                     b.Navigation("Artist");
                 });

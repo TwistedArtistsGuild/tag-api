@@ -12,6 +12,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
+using System.IO;
+using System.Text.Json;
+using System.Globalization;
 
 namespace TAGWEBAPI.Controllers;
 
@@ -337,39 +340,94 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPut("byID/{id}")]
-    public async Task<IActionResult> UpdateByID(int id, Artist artist)
+    public async Task<IActionResult> UpdateByID(int id)
     {
-        if (id != artist.ArtistID)
+        if (_context.Artists == null)
         {
-            return BadRequest("ID mismatch");
+            return NotFound();
         }
 
-        // Ensure the path is valid and unique
+        var existingArtist = await _context.Artists.FindAsync(id).ConfigureAwait(false);
+        if (existingArtist == null)
+        {
+            return NotFound();
+        }
+
+        // Read raw body to avoid model binding and nested ArtistPermissions validation
+        using var reader = new StreamReader(Request.Body);
+        var bodyText = await reader.ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(bodyText))
+        {
+            return BadRequest("Missing artist payload.");
+        }
+
+        JsonDocument doc;
         try
         {
-            if (!ValidPathRegex.IsMatch(artist.Path))
-            {
-                artist.Path = await GenerateUniquePathAsync(artist.Title);
-            }
-            else if (!await IsPathUniqueAsync(artist.Path, id))
-            {
-                return BadRequest("Path is not unique.");
-            }
+            doc = JsonDocument.Parse(bodyText);
         }
-        catch (Exception ex)
+        catch (JsonException)
         {
-            return BadRequest($"Path validation error: {ex.Message}");
+            return BadRequest("Invalid JSON payload.");
         }
 
-        _context.Entry(artist).State = EntityState.Modified;
+        var root = doc.RootElement;
+        var props = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in root.EnumerateObject()) props[prop.Name] = prop.Value;
+
+        static string GetString(JsonElement el) => el.ValueKind == JsonValueKind.Null ? null : el.GetString();
+
+        if (props.TryGetValue("Applied", out var p))
+        {
+            DateTime parsedApplied;
+            if (p.ValueKind == JsonValueKind.String)
+            {
+                parsedApplied = DateTime.Parse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+            }
+            else
+            {
+                parsedApplied = p.GetDateTime();
+            }
+
+            existingArtist.Applied = DateTime.SpecifyKind(parsedApplied.ToUniversalTime(), DateTimeKind.Utc);
+        }
+        if (props.TryGetValue("Biography", out p)) existingArtist.Biography = GetString(p) ?? existingArtist.Biography;
+        if (props.TryGetValue("Byline", out p)) existingArtist.Byline = GetString(p) ?? existingArtist.Byline;
+        if (props.TryGetValue("Path", out p))
+        {
+            var newPath = GetString(p);
+            if (newPath != null && newPath != existingArtist.Path)
+            {
+                if (!ValidPathRegex.IsMatch(newPath))
+                {
+                    return BadRequest("Invalid slug format.");
+                }
+                if (!await IsPathUniqueAsync(newPath, existingArtist.ArtistID))
+                {
+                    return BadRequest("Path is not unique.");
+                }
+                existingArtist.Path = newPath;
+            }
+        }
+        if (props.TryGetValue("SEOTags", out p)) existingArtist.SEOTags = GetString(p) ?? existingArtist.SEOTags;
+        if (props.TryGetValue("Since", out p) && p.ValueKind == JsonValueKind.String)
+        {
+            var parsedSince = DateTime.Parse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+            existingArtist.Since = DateTime.SpecifyKind(parsedSince.ToUniversalTime(), DateTimeKind.Utc);
+        }
+        if (props.TryGetValue("Statement", out p)) existingArtist.Statement = GetString(p) ?? existingArtist.Statement;
+        if (props.TryGetValue("Title", out p)) existingArtist.Title = GetString(p) ?? existingArtist.Title;
+        if (props.TryGetValue("CoverPicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var cid)) existingArtist.CoverPicID = cid;
+        if (props.TryGetValue("FocusCategoryID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var fcid)) existingArtist.FocusCategoryID = fcid;
+        if (props.TryGetValue("ProfilePicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var pid)) existingArtist.ProfilePicID = pid;
 
         try
         {
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync().ConfigureAwait(false);
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!ArtistExists(id))
+            if (!ArtistExists(existingArtist.ArtistID))
             {
                 return NotFound();
             }
@@ -383,7 +441,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPut("{slug}")]
-    public async Task<IActionResult> Update(string slug, Artist artist)
+    public async Task<IActionResult> Update(string slug)
     {
         if (_context.Artists == null)
         {
@@ -396,34 +454,69 @@ public class ArtistController : ControllerBase
             return NotFound();
         }
 
-        existingArtist.Applied = artist.Applied;
-        existingArtist.Biography = artist.Biography;
-        existingArtist.Byline = artist.Byline;
-        existingArtist.Path = artist.Path;
-        existingArtist.SEOTags = artist.SEOTags;
-        existingArtist.Since = artist.Since;
-        existingArtist.Statement = artist.Statement;
-        existingArtist.Title = artist.Title;
-        existingArtist.CoverPicID = artist.CoverPicID;
-        existingArtist.FocusCategoryID = artist.FocusCategoryID;
-        existingArtist.ProfilePicID = artist.ProfilePicID;
+        // Read raw body to avoid model binding and nested ArtistPermissions validation
+        using var reader = new StreamReader(Request.Body);
+        var bodyText = await reader.ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(bodyText))
+        {
+            return BadRequest("Missing artist payload.");
+        }
 
-        // Ensure the path is valid and unique
+        JsonDocument doc;
         try
         {
-            if (!ValidPathRegex.IsMatch(existingArtist.Path))
-            {
-                existingArtist.Path = await GenerateUniquePathAsync(existingArtist.Title);
-            }
-            else if (!await IsPathUniqueAsync(existingArtist.Path, existingArtist.ArtistID))
-            {
-                return BadRequest("Path is not unique.");
-            }
+            doc = JsonDocument.Parse(bodyText);
         }
-        catch (Exception ex)
+        catch (JsonException)
         {
-            return BadRequest($"Path validation error: {ex.Message}");
+            return BadRequest("Invalid JSON payload.");
         }
+
+        var root = doc.RootElement;
+        var props = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in root.EnumerateObject()) props[prop.Name] = prop.Value;
+
+        static string GetString(JsonElement el) => el.ValueKind == JsonValueKind.Null ? null : el.GetString();
+
+        if (props.TryGetValue("Applied", out var p))
+        {
+            DateTime parsedApplied;
+            if (p.ValueKind == JsonValueKind.String)
+            {
+                parsedApplied = DateTime.Parse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+            }
+            else
+            {
+                parsedApplied = p.GetDateTime();
+            }
+
+            existingArtist.Applied = DateTime.SpecifyKind(parsedApplied.ToUniversalTime(), DateTimeKind.Utc);
+        }
+        if (props.TryGetValue("Biography", out p)) existingArtist.Biography = GetString(p) ?? existingArtist.Biography;
+        if (props.TryGetValue("Byline", out p)) existingArtist.Byline = GetString(p) ?? existingArtist.Byline;
+        if (props.TryGetValue("Path", out p))
+        {
+            var newPath = GetString(p);
+            if (newPath != null && newPath != existingArtist.Path)
+            {
+                if (!await IsPathUniqueAsync(newPath, existingArtist.ArtistID))
+                {
+                    return BadRequest("Path is not unique.");
+                }
+                existingArtist.Path = newPath;
+            }
+        }
+        if (props.TryGetValue("SEOTags", out p)) existingArtist.SEOTags = GetString(p) ?? existingArtist.SEOTags;
+        if (props.TryGetValue("Since", out p) && p.ValueKind == JsonValueKind.String)
+        {
+            var parsedSince = DateTime.Parse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+            existingArtist.Since = DateTime.SpecifyKind(parsedSince.ToUniversalTime(), DateTimeKind.Utc);
+        }
+        if (props.TryGetValue("Statement", out p)) existingArtist.Statement = GetString(p) ?? existingArtist.Statement;
+        if (props.TryGetValue("Title", out p)) existingArtist.Title = GetString(p) ?? existingArtist.Title;
+        if (props.TryGetValue("CoverPicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var cid)) existingArtist.CoverPicID = cid;
+        if (props.TryGetValue("FocusCategoryID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var fcid)) existingArtist.FocusCategoryID = fcid;
+        if (props.TryGetValue("ProfilePicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var pid)) existingArtist.ProfilePicID = pid;
 
         try
         {

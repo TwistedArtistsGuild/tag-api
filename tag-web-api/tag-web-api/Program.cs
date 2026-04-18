@@ -3,6 +3,7 @@
 // </copyright>
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 
@@ -18,8 +19,19 @@ var builder = WebApplication.CreateBuilder(args);
 var appInsightsConnectionString = builder.Configuration.GetConnectionString("appinsights");
 if (!string.IsNullOrEmpty(appInsightsConnectionString))
 {
-    builder.Services.AddApplicationInsightsTelemetry(appInsightsConnectionString);
-    Console.WriteLine(textprefix + "Application Insights telemetry enabled.");
+    // Register Application Insights carefully - failures during design-time (dotnet-ef)
+    // or mismatched package/tooling versions can throw when listeners are attached.
+    try
+    {
+        builder.Services.AddApplicationInsightsTelemetry(appInsightsConnectionString);
+        Console.WriteLine(textprefix + "Application Insights telemetry enabled.");
+    }
+    catch (Exception aiEx)
+    {
+        // Don't allow telemetry registration to abort the host build, especially during design-time operations.
+        Console.WriteLine(textprefix + "Could not enable Application Insights telemetry. Continuing without it.");
+        Console.WriteLine("Telemetry registration error: " + aiEx.Message);
+    }
 }
 else
 {
@@ -122,45 +134,55 @@ catch (Exception ex)
 {
     // Always log to console first for immediate visibility
     Console.WriteLine("========================================");
-    Console.WriteLine($"Exception caught in Program.cs: {ex.Message}");
+    Console.WriteLine("Exception caught in Program.cs:");
+    // Print the full exception (includes inner exceptions) to help debugging during design-time operations
+    Console.WriteLine(ex.ToString());
     Console.WriteLine("========================================");
-    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
 
     // Attempt to log to database - with smarter exception handling
-    try 
+    // If the host was aborted by a diagnostic listener (HostAbortedException) it's often
+    // informational during design-time runs; skip trying to resolve services in that case
+    if (ex is HostAbortedException)
     {
-        using (var scope = builder.Services.BuildServiceProvider().CreateScope())
+        Console.WriteLine("Host aborted during build; skipping database logging to avoid cascading failures.");
+    }
+    else
+    {
+        try
         {
-            var db = scope.ServiceProvider.GetRequiredService<TAGDBContext>();
-            
-            // Simple database connection check
-            if (db.Database.CanConnect())
+            using (var scope = builder.Services.BuildServiceProvider().CreateScope())
             {
-                var log = new Log
+                var db = scope.ServiceProvider.GetRequiredService<TAGDBContext>();
+
+                // Simple database connection check
+                if (db.Database.CanConnect())
                 {
-                    Tags = "Program.cs",
-                    ShortText = "ERROR",
-                    Critical = true,
-                    LoggedData = $"Message: {ex.Message} \r\n Stack: {ex.StackTrace}",
-                    LogTimestamp = DateTime.UtcNow, // Always use UTC time
-                };
-                db.Logs.Add(log);
-                db.SaveChanges();
-                Console.WriteLine("Error successfully logged to database.");
-            }
-            else
-            {
-                Console.WriteLine("Database connection failed - error logged to console only.");
+                    var log = new Log
+                    {
+                        Tags = "Program.cs",
+                        ShortText = "ERROR",
+                        Critical = true,
+                        LoggedData = $"Message: {ex.Message} \r\n Stack: {ex.StackTrace}",
+                        LogTimestamp = DateTime.UtcNow, // Always use UTC time
+                    };
+                    db.Logs.Add(log);
+                    db.SaveChanges();
+                    Console.WriteLine("Error successfully logged to database.");
+                }
+                else
+                {
+                    Console.WriteLine("Database connection failed - error logged to console only.");
+                }
             }
         }
-    }
-    catch (Exception dbEx)
-    {
-        // If database logging fails, just note it and continue
-        // This handles DB doesn't exist, permissions issues, etc. 
-        Console.WriteLine("Could not log to database:");
-        Console.WriteLine($"Reason: {dbEx.Message}");
-        
-        // No need to re-log the original exception - it's already in the console output
+        catch (Exception dbEx)
+        {
+            // If database logging fails, just note it and continue
+            // This handles DB doesn't exist, permissions issues, etc. 
+            Console.WriteLine("Could not log to database:");
+            Console.WriteLine($"Reason: {dbEx.Message}");
+
+            // No need to re-log the original exception - it's already in the console output
+        }
     }
 }
