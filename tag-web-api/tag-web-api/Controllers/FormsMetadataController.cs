@@ -11,11 +11,11 @@ namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class Forms_MetadataController : ControllerBase
+public class FormsMetadataController : ControllerBase
 {
     private readonly TAGDBContext context;
 
-    public Forms_MetadataController(TAGDBContext context)
+    public FormsMetadataController(TAGDBContext context)
     {
         this.context = context;
     }
