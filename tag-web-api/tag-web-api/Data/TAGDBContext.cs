@@ -18,6 +18,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<ArtCategory> ArtCategories { get; set; }
 
+        public DbSet<ArtistCategory> ArtistCategories { get; set; }
+
         public DbSet<Artist> Artists { get; set; }
 
         public DbSet<ArtistPermissions> ArtistPermissions { get; set; }
@@ -40,6 +42,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<Event> Events { get; set; }
 
+        public DbSet<EventCategory> EventCategories { get; set; }
+
         public DbSet<ExternalLink> ExternalLinks { get; set; }
 
         public DbSet<Forms_Field> Forms_Fields { get; set; }
@@ -47,6 +51,8 @@ namespace TAGWEBAPI.Data
         public DbSet<Forms_Metadata> Forms_Metadata { get; set; }
 
         public DbSet<Linker_TicketToEvent> Linker_TicketToEvents { get; set; }
+
+        public DbSet<LinkerArtistToCategory> Linker_ArtistToCategories { get; set; }
 
         public DbSet<Linker_TransactionLineItem> Linker_TransactionLineItems { get; set; }
 
@@ -101,6 +107,8 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Forms_MetadataConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Forms_FieldConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtCategoryConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistCategoryConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.EventCategoryConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.PhoneContactConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ExternalLinkConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.AddressConfiguration());
@@ -109,8 +117,10 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.BlogConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerUserToArtistConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerArtistToCategoryConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LogConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ListingConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.EventConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.StaffConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.StaffRoleConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.TicketConfiguration());
