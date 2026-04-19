@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -33,5 +34,6 @@ public class Blog
     [ForeignKey("User")]
     public int UserID { get; set; }
 
+    [ValidateNever]
     public virtual User User { get; set; }
 }
