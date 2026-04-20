@@ -83,78 +83,37 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBlog(int id)
+        public async Task<IActionResult> PutBlog(int id, [FromBody] Blog dto)
         {
-            // Read raw body to avoid model binding and nested User validation
-            using var reader = new StreamReader(Request.Body);
-            var bodyText = await reader.ReadToEndAsync();
-            if (string.IsNullOrWhiteSpace(bodyText))
-            {
-                return BadRequest("Missing blog payload.");
-            }
+            // 1. Basic Validation
+            if (id != dto.BlogID)
+                return BadRequest("ID Mismatch between URL and Body.");
 
-            JsonDocument doc;
-            try
-            {
-                doc = JsonDocument.Parse(bodyText);
-            }
-            catch (JsonException)
-            {
-                return BadRequest("Invalid JSON payload.");
-            }
+            if (!ValidPathRegex.IsMatch(dto.Path))
+                return BadRequest("Invalid path format.");
 
-            var root = doc.RootElement;
-
-            // Build a case-insensitive map of properties to simplify lookups
-            var props = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prop in root.EnumerateObject())
-            {
-                props[prop.Name] = prop.Value;
-            }
-
-            // If payload contains an ID, ensure it matches the route
-            if (props.TryGetValue("BlogID", out var idProp) || props.TryGetValue("id", out idProp))
-            {
-                if (idProp.ValueKind == JsonValueKind.Number && idProp.TryGetInt32(out var bodyId))
-                {
-                    if (bodyId != id) return BadRequest("Route id does not match BlogID in payload.");
-                }
-            }
-
+            // 2. Fetch the EXISTING record from the DB
+            // This is safer than _context.Entry(blog).State = Modified
             var blog = await _context.Blogs.FindAsync(id);
             if (blog == null) return NotFound();
 
-            // Helper to get string values safely
-            static string GetString(JsonElement el) => el.ValueKind == JsonValueKind.Null ? null : el.GetString();
-
-            // Update fields if present. Only check Path uniqueness when Path is changing.
-            if (props.TryGetValue("Body", out var p)) blog.Body = GetString(p) ?? blog.Body;
-            if (props.TryGetValue("Body_Plaintext", out p)) blog.Body_Plaintext = GetString(p) ?? blog.Body_Plaintext;
-            if (props.TryGetValue("Byline", out p)) blog.Byline = GetString(p) ?? blog.Byline;
-            if (props.TryGetValue("Title", out p)) blog.Title = GetString(p) ?? blog.Title;
-
-            if (props.TryGetValue("Path", out p))
+            // 3. Unique Path Check (Only if Path is changing)
+            if (dto.Path != blog.Path)
             {
-                var newPath = GetString(p);
-                if (newPath != null && newPath != blog.Path)
-                {
-                    // Only enforce uniqueness when changing the path
-                    if (!await IsPathUniqueAsync(newPath, id))
-                    {
-                        return Conflict("Path is already in use.");
-                    }
-
-                    blog.Path = newPath;
-                }
+                if (!await IsPathUniqueAsync(dto.Path, id))
+                    return Conflict("Path is already in use.");
+                blog.Path = dto.Path;
             }
 
-            if (props.TryGetValue("UserID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var uid))
-            {
-                blog.UserID = uid;
-            }
+            // 4. Map only the allowed fields
+            blog.Title = dto.Title;
+            blog.Body = dto.Body;
+            blog.Body_Plaintext = dto.Body_Plaintext;
+            blog.Byline = dto.Byline;
+            blog.UserID = dto.UserID;
+            blog.Modified = DateTime.UtcNow; // Set on server
 
-            blog.Modified = DateTime.UtcNow;
-
+            // 5. Save Changes
             try
             {
                 await _context.SaveChangesAsync();
@@ -165,7 +124,7 @@ namespace TAGWEBAPI.Controllers
                 throw;
             }
 
-            return NoContent();
+            return NoContent(); // 204 is the standard success for PUT
         }
 
         [HttpPost]
