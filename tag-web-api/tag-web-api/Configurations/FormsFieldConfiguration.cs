@@ -102,10 +102,11 @@ namespace TAGWEBAPI.Models.Configurations
                 new Forms_Field { Forms_FieldID = 210, Forms_MetadataID = 7, Name = "minimumage", ClassName = "styles.input", Type = "number", Placeholder = "Minimum Age", DefaultValue = "0", Label = "Minimum Age", RegexValidationPattern = "validate_number", IsRequired = true },
                 new Forms_Field { Forms_FieldID = 211, Forms_MetadataID = 7, Name = "path", ClassName = "styles.input", Type = "text", Placeholder = "Path (similar to title)", DefaultValue = "", Label = "Path", RegexValidationPattern = "validate_string", IsReadOnly = true },
 
+
                 // BlogForm1 (Blog entity)
                 new Forms_Field { Forms_FieldID = 301, Forms_MetadataID = 8, Name = "title", ClassName = "styles.input", Type = "text", Placeholder = "Blog Title", DefaultValue = "", Label = "Title", RegexValidationPattern = "validate_string", IsRequired = true },
-                new Forms_Field { Forms_FieldID = 302, Forms_MetadataID = 8, Name = "body", ClassName = "styles.input", Type = "textarea", Placeholder = "Blog Content", DefaultValue = "", Label = "Content", Height = "15", Width = "100%", RegexValidationPattern = "validate_string", IsRequired = true },
-                new Forms_Field { Forms_FieldID = 303, Forms_MetadataID = 8, Name = "byline", ClassName = "styles.input", Type = "textarea", Placeholder = "Short preview or summary", DefaultValue = "", Label = "Byline", Height = "3", Width = "100%", RegexValidationPattern = "validate_string", IsRequired = true },
+                new Forms_Field { Forms_FieldID = 302, Forms_MetadataID = 8, Name = "body", ClassName = "styles.input", Type = "tiptap_portfolio", Placeholder = "Blog Content", DefaultValue = "", Label = "Content", Height = "15", Width = "100%", RegexValidationPattern = "validate_string", IsRequired = true },
+                new Forms_Field { Forms_FieldID = 303, Forms_MetadataID = 8, Name = "byline", ClassName = "styles.input", Type = "tiptap_title", Placeholder = "Short preview or summary", DefaultValue = "", Label = "Byline", Height = "3", Width = "100%", RegexValidationPattern = "validate_string", IsRequired = true },
                 new Forms_Field { Forms_FieldID = 304, Forms_MetadataID = 8, Name = "path", ClassName = "styles.input", Type = "text", Placeholder = "Path (similar to title)", DefaultValue = "", Label = "Path", RegexValidationPattern = "validate_string", IsReadOnly = true },
 
                 // UserForm1 (User entity)
