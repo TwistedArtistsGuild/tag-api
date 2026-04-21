@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TAGWEBAPI.Data;
@@ -11,9 +12,11 @@ using TAGWEBAPI.Data;
 namespace tag_web_api.Migrations
 {
     [DbContext(typeof(TAGDBContext))]
-    partial class TAGDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260419014747_alpha_fresh_start")]
+    partial class alpha_fresh_start
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

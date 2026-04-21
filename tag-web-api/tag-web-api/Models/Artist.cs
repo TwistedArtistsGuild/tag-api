@@ -39,11 +39,6 @@ public class Artist
 
     public virtual Picture? CoverPic { get; set; }
 
-    [ForeignKey("ArtCategory")]
-    public int? FocusCategoryID { get; set; }
-
-    public virtual ArtCategory? FocusCategory { get; set; }
-
     [ForeignKey("Picture")]
     public int? ProfilePicID { get; set; }
 
@@ -52,6 +47,8 @@ public class Artist
     public virtual ArtistPermissions ArtistPermissions { get; set; }
 
     public virtual ICollection<Linker_UserAndArtistToContact>? Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
+
+    public virtual ICollection<LinkerArtistToCategory>? ArtistCategoryLinks { get; set; } = new List<LinkerArtistToCategory>();
 
     public void SetPath(string path)
     {

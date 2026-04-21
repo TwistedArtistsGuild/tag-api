@@ -50,6 +50,9 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
             .IsRequired()
             .HasMaxLength(255);
 
+        builder.Property(e => e.EventCategoryID)
+            .IsRequired(false);
+
         builder.HasIndex(e => e.Path)
             .IsUnique();
 
@@ -63,6 +66,11 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
             .WithMany()
             .HasForeignKey(e => e.ArtistID)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.EventCategory)
+            .WithMany()
+            .HasForeignKey(e => e.EventCategoryID)
+            .OnDelete(DeleteBehavior.SetNull);
             
         // Add seed data
         SeedData(builder);
@@ -88,6 +96,7 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
                 MaxOccupancy = 15,
                 MinimumAge = 12,
                 Path = "tie-dye-workshop",
+                EventCategoryID = 1,
                 VenueID = 1,
                 ArtistID = 1
             }
@@ -109,6 +118,7 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
                 MaxOccupancy = 10,
                 MinimumAge = 16,
                 Path = "beginner-aerial-class",
+                EventCategoryID = 2,
                 VenueID = 5, // Satarah Studio venue
                 ArtistID = 4
             },
@@ -126,6 +136,7 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
                 MaxOccupancy = 8,
                 MinimumAge = 16,
                 Path = "intermediate-aerial-class",
+                EventCategoryID = 2,
                 VenueID = 5, // Satarah Studio venue
                 ArtistID = 4
             },
@@ -143,6 +154,7 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
                 MaxOccupancy = 6,
                 MinimumAge = 18,
                 Path = "advanced-aerial-class",
+                EventCategoryID = 2,
                 VenueID = 5, // Satarah Studio venue
                 ArtistID = 4
             }

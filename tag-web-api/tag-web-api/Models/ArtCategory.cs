@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 
@@ -22,4 +23,11 @@ public class ArtCategory
 
     [Required]
     public string Tags { get; set; }
+
+    [ForeignKey("ParentCategory")]
+    public int? ParentArtCategoryID { get; set; }
+
+    public virtual ArtCategory? ParentCategory { get; set; }
+
+    public virtual ICollection<ArtCategory>? SubCategories { get; set; }
 }

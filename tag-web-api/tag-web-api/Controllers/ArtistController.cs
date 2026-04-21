@@ -4,6 +4,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -102,13 +103,28 @@ public class ArtistController : ControllerBase
             return NotFound();
         }
 
-        // Get all listings for this artist with required includes
-        var listings = await _context.Set<Listing>()
-            .Where(l => l.ArtistID == artist.ArtistID)
-            .Include(l => l.ArtCategory)
-            .Include(l => l.ProfilePic)
-            .ToListAsync()
-            .ConfigureAwait(false);
+        // Transitional fallback: tolerate DBs that do not yet have ArtCategory hierarchy columns.
+        List<Listing> listings;
+        try
+        {
+            listings = await _context.Set<Listing>()
+                .Where(l => l.ArtistID == artist.ArtistID)
+                .Include(l => l.ArtCategory)
+                .Include(l => l.ProfilePic)
+                .ToListAsync()
+                .ConfigureAwait(false);
+        }
+        catch (PostgresException ex)
+            when (ex.SqlState == PostgresErrorCodes.UndefinedColumn && ex.MessageText.Contains("ParentArtCategoryID", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(ex, "Falling back to listings without ArtCategory include because ParentArtCategoryID is missing in the current DB schema.");
+
+            listings = await _context.Set<Listing>()
+                .Where(l => l.ArtistID == artist.ArtistID)
+                .Include(l => l.ProfilePic)
+                .ToListAsync()
+                .ConfigureAwait(false);
+        }
 
         if (!listings.Any())
         {
@@ -418,7 +434,6 @@ public class ArtistController : ControllerBase
         if (props.TryGetValue("Statement", out p)) existingArtist.Statement = GetString(p) ?? existingArtist.Statement;
         if (props.TryGetValue("Title", out p)) existingArtist.Title = GetString(p) ?? existingArtist.Title;
         if (props.TryGetValue("CoverPicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var cid)) existingArtist.CoverPicID = cid;
-        if (props.TryGetValue("FocusCategoryID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var fcid)) existingArtist.FocusCategoryID = fcid;
         if (props.TryGetValue("ProfilePicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var pid)) existingArtist.ProfilePicID = pid;
 
         try
@@ -515,7 +530,6 @@ public class ArtistController : ControllerBase
         if (props.TryGetValue("Statement", out p)) existingArtist.Statement = GetString(p) ?? existingArtist.Statement;
         if (props.TryGetValue("Title", out p)) existingArtist.Title = GetString(p) ?? existingArtist.Title;
         if (props.TryGetValue("CoverPicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var cid)) existingArtist.CoverPicID = cid;
-        if (props.TryGetValue("FocusCategoryID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var fcid)) existingArtist.FocusCategoryID = fcid;
         if (props.TryGetValue("ProfilePicID", out p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var pid)) existingArtist.ProfilePicID = pid;
 
         try

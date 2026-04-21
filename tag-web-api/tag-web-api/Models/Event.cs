@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 public class Event
@@ -39,9 +40,14 @@ public class Event
 
     [Required]
     public string Path { get; set; }
+
+    [ForeignKey("EventCategory")]
+    public int? EventCategoryID { get; set; }
     
     // Navigation properties
     public Artist Artist { get; set; }
+
+    public EventCategory? EventCategory { get; set; }
     
     public Venue Venue { get; set; }
 }

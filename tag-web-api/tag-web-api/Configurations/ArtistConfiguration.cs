@@ -46,12 +46,6 @@ public class ArtistConfiguration : IEntityTypeConfiguration<Artist>
             .HasForeignKey(a => a.CoverPicID)
             .OnDelete(DeleteBehavior.SetNull);
 
-        builder.Property(a => a.FocusCategoryID).IsRequired(false);
-        builder.HasOne(a => a.FocusCategory)
-            .WithMany()
-            .HasForeignKey(a => a.FocusCategoryID)
-            .OnDelete(DeleteBehavior.SetNull);
-
         builder.Property(a => a.ProfilePicID).IsRequired(false);
         builder.HasOne(a => a.ProfilePic)
             .WithMany()
