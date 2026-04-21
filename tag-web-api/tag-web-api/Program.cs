@@ -72,9 +72,11 @@ builder.Services.AddCors(options =>
         builder
             .WithOrigins(
                 "https://dev.twistedartistsguild.com",
+                "https://staging.twistedartistsguild.com",
+                "https://vcdev.twistedartistsguild.com",
+                "https://vcstaging.twistedartistsguild.com",
                 "https://twistedartistsguild.com",
                 "https://www.twistedartistsguild.com", // Note for the future that CORS can keep dev, staging, and prod responding to only their peer group
-                "https://staging.twistedartistsguild.com",
                 "http://localhost:3000")
             .AllowAnyHeader()
             .AllowAnyMethod()
