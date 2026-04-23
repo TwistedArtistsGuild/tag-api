@@ -5,7 +5,7 @@ dotnet tool update --global dotnet-ef
 
 dotnet user-secrets init
 
-dotnet user-secrets set ConnectionStrings:tag_web_db "Host=tag-dev-flexdb.postgres.database.azure.com;Port=5432;Username=web_connection@tag-dev-flexdb.postgres.database.azure.com;Password=XXXX;Database=tag_web_db;"
+dotnet user-secrets set ConnectionStrings:tag_web_db "Host=tag-dev-flexdb.postgres.database.azure.com;Port=5432;Database=tag_web_db;Username=web_connection;Password=XXXX;SSL Mode=Require;Trust Server Certificate=false"
 
 dotnet user-secrets set ConnectionStrings:tag_web_db "Host=localhost;Port=5432;Username=web_connection;Password=XXXX;Database=tag_web_db;"
 
@@ -15,6 +15,39 @@ dotnet user-secrets list
 ```sql
 GRANT ALL PRIVILEGES ON DATABASE tag_web_db TO web_connection;
 GRANT ALL PRIVILEGES ON SCHEMA public TO web_connection;
+
+GRANT ALL PRIVILEGES ON DATABASE tag_web_db TO testing_web_connection;
+GRANT ALL PRIVILEGES ON SCHEMA public TO testing_web_connection;
+
+GRANT ALL PRIVILEGES ON DATABASE tag_web_db TO mbanga;
+GRANT ALL PRIVILEGES ON SCHEMA public TO mbanga;
+
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO testing_web_connection;
+
+GRANT USAGE, SELECT
+ON ALL SEQUENCES IN SCHEMA public
+TO testing_web_connection;
+
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO web_connection;
+
+GRANT USAGE, SELECT
+ON ALL SEQUENCES IN SCHEMA public
+TO web_connection;
+
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO mbanga;
+
+GRANT USAGE, SELECT
+ON ALL SEQUENCES IN SCHEMA public
+TO mbanga;
 ```
 
 ## When You'll Need Manual Adjustments
