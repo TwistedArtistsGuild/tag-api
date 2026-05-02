@@ -4,6 +4,7 @@
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace TAGWEBAPI.Models;
 
@@ -62,6 +63,7 @@ public class Listing
     [ForeignKey("Artist")]
     public int ArtistID { get; set; }
 
+    [JsonIgnore]
     public Artist Artist { get; set; }
 
     [ForeignKey("Picture")]
