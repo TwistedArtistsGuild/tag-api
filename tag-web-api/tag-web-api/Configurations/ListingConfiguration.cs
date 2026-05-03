@@ -84,7 +84,7 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(l => l.Artist)
-            .WithMany()
+            .WithMany(a => a.Listings)
             .HasForeignKey(l => l.ArtistID)
             .OnDelete(DeleteBehavior.SetNull);
 
