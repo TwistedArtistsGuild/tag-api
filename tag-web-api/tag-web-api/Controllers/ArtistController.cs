@@ -36,10 +36,24 @@ public class ArtistController : ControllerBase
     [HttpGet(Name = "GetArtists")]
     public async Task<ActionResult<IEnumerable<Artist>>> Get()
     {
-        return await _context.Set<Artist>()
+        var artists = await _context.Set<Artist>()
             .Include(a => a.ProfilePic)
+            .Include(a => a.CoverPic)
+            .Include(a => a.Listings)
+                .ThenInclude(l => l.ProfilePic)
             .ToListAsync()
             .ConfigureAwait(false);
+
+        // Limit each artist's listings to top 3 for gallery preview
+        foreach (var artist in artists)
+        {
+            if (artist.Listings != null && artist.Listings.Count > 3)
+            {
+                artist.Listings = artist.Listings.Take(3).ToList();
+            }
+        }
+
+        return artists;
     }
 
     [HttpGet("byID/{id}")]

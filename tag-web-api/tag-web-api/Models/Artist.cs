@@ -50,6 +50,8 @@ public class Artist
 
     public virtual ICollection<LinkerArtistToCategory>? ArtistCategoryLinks { get; set; } = new List<LinkerArtistToCategory>();
 
+    public virtual ICollection<Listing>? Listings { get; set; } = new List<Listing>();
+
     public void SetPath(string path)
     {
         Path = path.ToLower();
