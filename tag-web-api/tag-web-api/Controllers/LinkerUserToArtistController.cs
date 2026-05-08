@@ -4,6 +4,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 
 namespace TAGWEBAPI.Controllers;
@@ -12,9 +13,9 @@ namespace TAGWEBAPI.Controllers;
 [ApiController]
 public class Linker_UserToArtistController : ControllerBase
 {
-    private readonly DbContext context;
+    private readonly TAGDBContext context;
 
-    public Linker_UserToArtistController(DbContext context) // Updated constructor name
+    public Linker_UserToArtistController(TAGDBContext context)
     {
         this.context = context;
     }
@@ -36,6 +37,31 @@ public class Linker_UserToArtistController : ControllerBase
         }
 
         return userToArtist;
+    }
+
+    [HttpGet("byUserID/{userId}")]
+    public async Task<ActionResult<IEnumerable<Artist>>> GetArtistsByUserId(int userId)
+    {
+        var artistIds = await this.context.Set<Linker_UserToArtist>()
+            .Where(link => link.UserID == userId)
+            .Select(link => link.ArtistID)
+            .Distinct()
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        if (artistIds.Count == 0)
+        {
+            return this.Ok(Array.Empty<Artist>());
+        }
+
+        var artists = await this.context.Artists
+            .Where(artist => artistIds.Contains(artist.ArtistID))
+            .Include(artist => artist.ProfilePic)
+            .Include(artist => artist.CoverPic)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        return this.Ok(artists);
     }
 
     [HttpPost]
