@@ -100,6 +100,12 @@ namespace TAGWEBAPI.Data
 
         public DbSet<Vote> Votes { get; set; }
 
+        public DbSet<ContentWarningGroup> ContentWarningGroups { get; set; }
+
+        public DbSet<ContentWarningItem> ContentWarningItems { get; set; }
+
+        public DbSet<UserContentPreference> UserContentPreferences { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -127,7 +133,7 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.TicketTypeConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.VenueConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistPermissionsConfiguration());
-
+            modelBuilder.Entity<UserContentPreference>().HasKey(p => new { p.UserId, p.ItemId });
         }
     }
 }
