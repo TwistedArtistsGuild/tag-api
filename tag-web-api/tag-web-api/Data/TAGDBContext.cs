@@ -30,14 +30,6 @@ namespace TAGWEBAPI.Data
 
         public DbSet<Blog> Blogs { get; set; }
 
-        public DbSet<Competition> Competitions { get; set; }
-
-        public DbSet<CompetitionListing> CompetitionListings { get; set; }
-
-        public DbSet<CompetitionVoteList> CompetitionVoteLists { get; set; }
-
-        public DbSet<CompetitionWinnerList> CompetitionWinnerLists { get; set; }
-
         public DbSet<DigitalDeliverySpecs> DigitalDeliverySpecs { get; set; }
 
         public DbSet<Event> Events { get; set; }
@@ -106,6 +98,14 @@ namespace TAGWEBAPI.Data
 
         public DbSet<UserContentPreference> UserContentPreferences { get; set; }
 
+        public DbSet<Contest> Contests { get; set; }
+
+        public DbSet<ContestEntry> ContestEntries { get; set; }
+
+        public DbSet<MasterImpression> MasterImpressions { get; set; }
+
+        public DbSet<ListingImpression> ListingImpressions { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -133,7 +133,11 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.TicketTypeConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.VenueConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistPermissionsConfiguration());
-            modelBuilder.Entity<UserContentPreference>().HasKey(p => new { p.UserId, p.ItemId });
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ContestConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ContestEntryConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.MasterImpressionConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ListingImpressionConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserContentPreferenceConfiguration());
         }
     }
 }

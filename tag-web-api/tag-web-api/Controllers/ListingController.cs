@@ -87,6 +87,31 @@ namespace TAGWEBAPI.Controllers
             return listing;
         }
 
+        [HttpGet("artist/{id}")]
+        public async Task<ActionResult<IEnumerable<Listing>>> GetListingByArtist(int id)
+        {
+            if (_context.Listings == null)
+            {
+                return NotFound();
+            }
+
+            // 2. Use .Where() and .ToListAsync()
+            var listings = await _context.Listings
+                .Include(l => l.Artist)
+                .Include(l => l.ArtCategory)
+                .Include(l => l.ProfilePic)
+                .Where(l => l.Artist.ArtistID == id)
+                .ToListAsync();
+
+            // 3. Check if the list is empty
+            if (listings == null || !listings.Any())
+            {
+                return NotFound("No listings found for the specified artist.");
+            }
+
+            return Ok(listings);
+        }
+
         [HttpPut("byID/{id}")]
         public async Task<IActionResult> PutListing(int id)
         {

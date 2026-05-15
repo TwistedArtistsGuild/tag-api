@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace TAGWEBAPI.Models;
@@ -52,6 +53,8 @@ public class Forms_Field
     public string? Width { get; set; }
 
     public int Forms_MetadataID { get; set; }
+
+    public string? Options { get; set; }
 
     [JsonIgnore]
     public Forms_Metadata Forms_Metadata { get; set; }
