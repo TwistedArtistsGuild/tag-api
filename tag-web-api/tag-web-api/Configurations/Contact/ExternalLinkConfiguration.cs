@@ -2,7 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
-namespace TAGWEBAPI.Models.Configurations
+namespace TAGWEBAPI.Models.Configurations.Contact
 {
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Metadata.Builders;

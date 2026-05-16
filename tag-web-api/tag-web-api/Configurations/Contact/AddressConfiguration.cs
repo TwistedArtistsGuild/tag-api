@@ -5,7 +5,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace TAGWEBAPI.Models.Configurations;
+namespace TAGWEBAPI.Models.Configurations.Contact;
 
 public class AddressConfiguration : IEntityTypeConfiguration<Address>
 {
