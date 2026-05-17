@@ -44,6 +44,15 @@ namespace TAGWEBAPI.Models.Configurations
 
             builder.Property(v => v.POCPhone)
                 .HasColumnType("text");
+
+            builder.Property(v => v.PrimaryContactID)
+                .IsRequired(false);
+
+            builder.HasOne(v => v.PrimaryContact)
+                .WithMany()
+                .HasForeignKey(v => v.PrimaryContactID)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
         }
     }
 }

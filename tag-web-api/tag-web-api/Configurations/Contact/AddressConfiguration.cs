@@ -47,6 +47,19 @@ public class AddressConfiguration : IEntityTypeConfiguration<Address>
         builder.Property(a => a.OperationHours)
             .HasMaxLength(255);
 
+        builder.Property(a => a.IsPrivate)
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(a => a.ContactLabelID)
+            .IsRequired(false);
+
+        builder.HasOne(a => a.ContactLabel)
+            .WithMany()
+            .HasForeignKey(a => a.ContactLabelID)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
         SeedData(builder);
     }
 

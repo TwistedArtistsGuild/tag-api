@@ -64,6 +64,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(t => t.UserID)
             .OnDelete(DeleteBehavior.SetNull);
 
+        builder.Property(u => u.PrimaryContactID)
+            .IsRequired(false);
+
+        builder.HasOne(u => u.PrimaryContact)
+            .WithMany()
+            .HasForeignKey(u => u.PrimaryContactID)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
         SeedData(builder);
     }
 

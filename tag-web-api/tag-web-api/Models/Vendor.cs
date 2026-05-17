@@ -29,4 +29,9 @@ public class Vendor
     public string POCName { get; set; }
 
     public string POCPhone { get; set; }
+
+    public int? PrimaryContactID { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.ForeignKey("PrimaryContactID")]
+    public virtual Contact? PrimaryContact { get; set; }
 }

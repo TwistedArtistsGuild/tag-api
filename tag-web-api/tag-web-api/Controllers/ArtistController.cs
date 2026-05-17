@@ -76,10 +76,13 @@ public class ArtistController : ControllerBase
     [HttpGet("{slug}")]
     public async Task<ActionResult<Artist>> Get(string slug)
     {
+        var normalizedSlug = NormalizeSlug(slug);
+
         var artist = await _context.Set<Artist>()
+            .AsNoTracking()
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == slug.ToLower())
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
             .ConfigureAwait(false);
         if (artist == null)
         {
@@ -87,6 +90,94 @@ public class ArtistController : ControllerBase
         }
 
         return artist;
+    }
+
+    [HttpGet("{slug}/contacts")]
+    [HttpGet("/api/artists/{slug}/contacts")]
+    public async Task<ActionResult<object>> GetArtistContacts(string slug)
+    {
+        if (_context.Artists == null)
+        {
+            return NotFound();
+        }
+
+        var normalizedSlug = NormalizeSlug(slug);
+
+        var artist = await _context.Artists
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
+            .ConfigureAwait(false);
+
+        if (artist == null)
+        {
+            return NotFound();
+        }
+
+        var contactLinks = await _context.Set<Linker_EntityToContact>()
+            .AsNoTracking()
+            .Where(l => l.ArtistID == artist.ArtistID && l.MakePublic)
+            .Include(l => l.Contact)
+                .ThenInclude(c => c.Address)
+            .Include(l => l.Contact)
+                .ThenInclude(c => c.PhoneContact)
+            .OrderBy(l => l.DisplayOrder)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var projected = contactLinks
+            .Select(l => new
+            {
+                linkId = l.Linker_EntityToContactID,
+                contactId = l.ContactID,
+                contactType = l.Contact.ContactType,
+                label = l.Contact.Label,
+                category = l.Contact.Category,
+                value = l.Contact.ContactType == "phone"
+                    ? l.Contact.PhoneContact != null ? l.Contact.PhoneContact.PhoneNumber : null
+                    : l.Contact.Value,
+                handle = l.Contact.Handle,
+                description = l.Contact.Description,
+                address = l.Contact.ContactType == "address"
+                    ? new
+                    {
+                        line1 = l.Contact.Address != null ? l.Contact.Address.AddressLine1 : null,
+                        line2 = l.Contact.Address != null ? l.Contact.Address.AddressLine2 : null,
+                        city = l.Contact.Address != null ? l.Contact.Address.City : null,
+                        region = l.Contact.Address != null ? l.Contact.Address.Region ?? l.Contact.Address.State : null,
+                        postalCode = l.Contact.Address != null ? l.Contact.Address.ZipCode : null,
+                        country = l.Contact.Address != null ? l.Contact.Address.Country : null,
+                        operationHours = l.Contact.Address != null ? l.Contact.Address.OperationHours : null,
+                    }
+                    : null,
+                displayOrder = l.DisplayOrder,
+            })
+            .ToList();
+
+        var links = projected
+            .Where(c => c.contactType == "url" && !string.IsNullOrWhiteSpace(c.value))
+            .Select(c => new
+            {
+                label = c.label ?? c.handle ?? "Website",
+                url = c.value,
+                purpose = c.description,
+                category = c.category,
+            })
+            .ToList();
+
+        return new
+        {
+            artistId = artist.ArtistID,
+            artistPath = artist.Path,
+            links,
+            contacts = projected,
+            byType = new
+            {
+                addresses = projected.Where(c => c.contactType == "address").ToList(),
+                phones = projected.Where(c => c.contactType == "phone").ToList(),
+                emails = projected.Where(c => c.contactType == "email").ToList(),
+                urls = projected.Where(c => c.contactType == "url").ToList(),
+            },
+        };
     }
 
     [HttpGet("{slug}/profile")]
@@ -97,8 +188,11 @@ public class ArtistController : ControllerBase
             return NotFound();
         }
 
+        var normalizedSlug = NormalizeSlug(slug);
+
         // Get the artist with all the required navigation properties included
         var artist = await _context.Artists
+            .AsNoTracking()
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
             .Include(a => a.Contacts)
@@ -108,7 +202,7 @@ public class ArtistController : ControllerBase
             .Include(a => a.Contacts)
                 .ThenInclude(c => c.ExternalLink)
             .AsSplitQuery() // This optimizes the query when including multiple collections
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == slug.ToLower())
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
             .ConfigureAwait(false);
 
         if (artist == null)
@@ -200,6 +294,11 @@ public class ArtistController : ControllerBase
                 links = externalLinks
             }
         };
+    }
+
+    private static string NormalizeSlug(string slug)
+    {
+        return slug.Trim().ToLowerInvariant();
     }
 
     [HttpPost]

@@ -52,6 +52,15 @@ public class ArtistConfiguration : IEntityTypeConfiguration<Artist>
             .HasForeignKey(a => a.ProfilePicID)
             .OnDelete(DeleteBehavior.SetNull);
 
+        builder.Property(a => a.PrimaryContactID)
+            .IsRequired(false);
+
+        builder.HasOne(a => a.PrimaryContact)
+            .WithMany()
+            .HasForeignKey(a => a.PrimaryContactID)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
         SeedData(builder);
     }
 

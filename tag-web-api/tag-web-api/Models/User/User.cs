@@ -55,6 +55,11 @@ public class User
 
     public string? Gender { get; set; }
 
+    public int? PrimaryContactID { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.ForeignKey("PrimaryContactID")]
+    public virtual Contact? PrimaryContact { get; set; }
+
     // Navigation property
     public ICollection<Staff> Staffs { get; set; }
 
