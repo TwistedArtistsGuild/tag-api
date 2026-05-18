@@ -55,10 +55,22 @@ public class User
 
     public string? Gender { get; set; }
 
+    public int? GalleryID { get; set; }
+
+    public int? CoverPicID { get; set; }
+
+    public int? ProfilePicID { get; set; }
+
     public int? PrimaryContactID { get; set; }
 
     [System.ComponentModel.DataAnnotations.Schema.ForeignKey("PrimaryContactID")]
     public virtual Contact? PrimaryContact { get; set; }
+
+    public virtual Gallery? Gallery { get; set; }
+
+    public virtual Picture? CoverPic { get; set; }
+
+    public virtual Picture? ProfilePic { get; set; }
 
     // Navigation property
     public ICollection<Staff> Staffs { get; set; }

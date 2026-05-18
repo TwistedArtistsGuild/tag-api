@@ -70,6 +70,18 @@ namespace TAGWEBAPI.Data
 
         public DbSet<Picture> Pictures { get; set; }
 
+        public DbSet<Video> Videos { get; set; }
+
+        public DbSet<Gallery> Galleries { get; set; }
+
+        public DbSet<GalleryItem> GalleryItems { get; set; }
+
+        public DbSet<CreditRole> CreditRoles { get; set; }
+
+        public DbSet<CreditParty> CreditParties { get; set; }
+
+        public DbSet<MediaCredit> MediaCredits { get; set; }
+
         public DbSet<Resolution> Resolutions { get; set; }
 
         public DbSet<ShippingSpecs> ShippingSpecs { get; set; }
@@ -133,6 +145,12 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.AddressConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.PictureConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.VideoConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.GalleryConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.GalleryItemConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.CreditRoleConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.CreditPartyConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.MediaCreditConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.BlogConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerUserToArtistConfiguration());

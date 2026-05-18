@@ -61,6 +61,15 @@ public class ArtistConfiguration : IEntityTypeConfiguration<Artist>
             .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
 
+        builder.Property(a => a.GalleryID)
+            .IsRequired(false);
+
+        builder.HasOne(a => a.Gallery)
+            .WithMany()
+            .HasForeignKey(a => a.GalleryID)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
         SeedData(builder);
     }
 
