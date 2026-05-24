@@ -17,11 +17,11 @@ public class ImpressionController : ControllerBase
         _context = context;
     }
 
-    // Fetch all master impressions (for the reaction picker UI)
-    [HttpGet("master")]
-    public async Task<ActionResult<IEnumerable<MasterImpression>>> GetMasterImpressions()
+    // Fetch all primary impressions (for the reaction picker UI)
+    [HttpGet("primary")]
+    public async Task<ActionResult<IEnumerable<PrimaryImpression>>> GetPrimaryImpressions()
     {
-        return await _context.MasterImpressions
+        return await _context.PrimaryImpressions
             .OrderBy(m => m.DisplayOrder)
             .ToListAsync();
     }

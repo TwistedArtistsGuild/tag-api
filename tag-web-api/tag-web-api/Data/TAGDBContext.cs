@@ -102,7 +102,7 @@ namespace TAGWEBAPI.Data
 
         public DbSet<ContestEntry> ContestEntries { get; set; }
 
-        public DbSet<MasterImpression> MasterImpressions { get; set; }
+        public DbSet<PrimaryImpression> PrimaryImpressions { get; set; }
 
         public DbSet<ListingImpression> ListingImpressions { get; set; }
 
@@ -135,7 +135,7 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistPermissionsConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ContestConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ContestEntryConfiguration());
-            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.MasterImpressionConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.PrimaryImpressionConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ListingImpressionConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserContentPreferenceConfiguration());
         }

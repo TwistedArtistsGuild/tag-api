@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 
-[Table("master_impressions", Schema = "public")]
-public class MasterImpression
+[Table("primary_impressions", Schema = "public")]
+public class PrimaryImpression
 {
     [Key]
     [Column("id")]

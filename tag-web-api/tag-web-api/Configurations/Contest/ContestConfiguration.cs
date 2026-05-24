@@ -55,6 +55,7 @@ public class ContestConfiguration : IEntityTypeConfiguration<Contest>
                 Description = "<p>Show us what renewal looks like in the twisted world of art.</p>",
                 Guidelines = "<ul><li>One entry per artist</li><li>Must be original work</li></ul>",
                 StartDate = new DateTime(2026, 05, 01, 0, 0, 0, DateTimeKind.Utc),
+                WarmupEndDate = new DateTime(2026, 05, 15, 23, 59, 59, DateTimeKind.Utc),
                 EndDate = new DateTime(2026, 05, 31, 23, 59, 59, DateTimeKind.Utc),
                 Period = "Monthly",
                 Status = "Active",
