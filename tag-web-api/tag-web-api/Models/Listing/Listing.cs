@@ -52,24 +52,28 @@ public class Listing
     public DateTime? Work_CompletionDate { get; set; }
 
     [Required]
-    public string Path { get; set; }
+    public string Path { get; set; } = string.Empty;
 
     [ForeignKey("ArtCategory")]
     public int ArtCategoryID { get; set; }
 
-    public ArtCategory ArtCategory { get; set; }
+    public ArtCategory ArtCategory { get; set; } = null!;
 
     [Required]
     [ForeignKey("Artist")]
     public int ArtistID { get; set; }
 
     [JsonIgnore]
-    public Artist Artist { get; set; }
+    public Artist Artist { get; set; } = null!;
+
+    public int? GalleryID { get; set; }
 
     [ForeignKey("Picture")]
-    public int? ProfilePicID { get; set; }
+    public int? CoverPicID { get; set; }
 
-    public Picture ProfilePic { get; set; }
+    public Picture? CoverPic { get; set; }
+
+    public Gallery? Gallery { get; set; }
 
     public ICollection<ListingSalesItem> ListingSalesItems { get; set; } = new List<ListingSalesItem>();
 }

@@ -38,6 +38,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<ExternalLink> ExternalLinks { get; set; }
 
+        public DbSet<LinkCategory> LinkCategories { get; set; }
+
         public DbSet<Forms_Field> Forms_Fields { get; set; }
 
         public DbSet<Forms_Metadata> Forms_Metadata { get; set; }
@@ -62,7 +64,23 @@ namespace TAGWEBAPI.Data
 
         public DbSet<PhoneContact> PhoneContacts { get; set; }
 
+        public DbSet<PhoneContactLabel> PhoneContactLabels { get; set; }
+
+        public DbSet<ContactLabel> ContactLabels { get; set; }
+
         public DbSet<Picture> Pictures { get; set; }
+
+        public DbSet<Video> Videos { get; set; }
+
+        public DbSet<Gallery> Galleries { get; set; }
+
+        public DbSet<GalleryItem> GalleryItems { get; set; }
+
+        public DbSet<CreditRole> CreditRoles { get; set; }
+
+        public DbSet<CreditParty> CreditParties { get; set; }
+
+        public DbSet<MediaCredit> MediaCredits { get; set; }
 
         public DbSet<Resolution> Resolutions { get; set; }
 
@@ -106,6 +124,10 @@ namespace TAGWEBAPI.Data
 
         public DbSet<ListingImpression> ListingImpressions { get; set; }
 
+        public DbSet<Contact> Contacts { get; set; }
+
+        public DbSet<Linker_EntityToContact> Linker_EntityToContacts { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -115,11 +137,20 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtCategoryConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistCategoryConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.EventCategoryConfiguration());
-            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.PhoneContactConfiguration());
-            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ExternalLinkConfiguration());
-            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.AddressConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.ContactLabelConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.PhoneContactLabelConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.PhoneContactConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.ExternalLinkConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.LinkCategoryConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.AddressConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.PictureConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.VideoConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.GalleryConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.GalleryItemConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.CreditRoleConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.CreditPartyConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.MediaCreditConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.BlogConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerUserToArtistConfiguration());
@@ -138,6 +169,8 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.MasterImpressionConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ListingImpressionConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserContentPreferenceConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.ContactConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerEntityToContactConfiguration());
         }
     }
 }

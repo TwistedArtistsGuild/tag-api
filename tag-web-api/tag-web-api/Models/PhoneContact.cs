@@ -12,11 +12,21 @@ public class PhoneContact
     [Key]
     public int PhoneContactID { get; set; }
 
+    public int? PhoneContactLabelID { get; set; }
+
+    public int? ContactLabelID { get; set; }
+
+    public bool IsPrivate { get; set; } = false;
+
     [StringLength(50)]
     public string? PhoneNumber { get; set; }
 
     [StringLength(255)]
     public string? Description { get; set; }
+
+    public PhoneContactLabel? PhoneContactLabel { get; set; }
+
+    public ContactLabel? ContactLabel { get; set; }
 
     // Navigation property - contacts using this phone
     public virtual ICollection<Linker_UserAndArtistToContact> Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();

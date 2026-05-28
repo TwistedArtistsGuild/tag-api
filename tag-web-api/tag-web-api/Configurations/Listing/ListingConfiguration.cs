@@ -71,11 +71,20 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
             .ValueGeneratedOnAddOrUpdate()
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-        builder.Property(l => l.ProfilePicID)
+        builder.Property(l => l.CoverPicID)
             .IsRequired(false);
-        builder.HasOne(l => l.ProfilePic)
+
+        builder.Property(l => l.GalleryID)
+            .IsRequired(false);
+
+        builder.HasOne(l => l.CoverPic)
             .WithMany()
-            .HasForeignKey(l => l.ProfilePicID)
+            .HasForeignKey(l => l.CoverPicID)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(l => l.Gallery)
+            .WithMany()
+            .HasForeignKey(l => l.GalleryID)
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(l => l.ArtCategory)
@@ -108,7 +117,6 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
                 Price = 199.99m,
                 Path = "booty-shorts",
                 ArtistID = 4,
-                ProfilePicID = 9,
                 // ...other properties...
             },
             new Listing
@@ -120,7 +128,6 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
                 Price = 19.99m,
                 Path = "tiedye1",
                 ArtistID = 1,
-                ProfilePicID = 9,
                 // ...other properties...
             },
             new Listing
@@ -132,7 +139,6 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
                 Price = 29.99m,
                 Path = "tiedye2",
                 ArtistID = 1,
-                ProfilePicID = 9,
                 // ...other properties...
             },
             new Listing
@@ -144,7 +150,6 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
                 Price = 39.99m,
                 Path = "tiedye3",
                 ArtistID = 1,
-                ProfilePicID = 9,
                 // ...other properties...
             }
         );

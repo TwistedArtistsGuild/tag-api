@@ -64,6 +64,42 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(t => t.UserID)
             .OnDelete(DeleteBehavior.SetNull);
 
+        builder.Property(u => u.PrimaryContactID)
+            .IsRequired(false);
+
+        builder.Property(u => u.GalleryID)
+            .IsRequired(false);
+
+        builder.Property(u => u.CoverPicID)
+            .IsRequired(false);
+
+        builder.Property(u => u.ProfilePicID)
+            .IsRequired(false);
+
+        builder.HasOne(u => u.PrimaryContact)
+            .WithMany()
+            .HasForeignKey(u => u.PrimaryContactID)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
+        builder.HasOne(u => u.Gallery)
+            .WithMany()
+            .HasForeignKey(u => u.GalleryID)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        builder.HasOne(u => u.CoverPic)
+            .WithMany()
+            .HasForeignKey(u => u.CoverPicID)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        builder.HasOne(u => u.ProfilePic)
+            .WithMany()
+            .HasForeignKey(u => u.ProfilePicID)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
         SeedData(builder);
     }
 

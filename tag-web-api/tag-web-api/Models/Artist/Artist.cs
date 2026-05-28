@@ -44,6 +44,15 @@ public class Artist
 
     public virtual Picture? ProfilePic { get; set; }
 
+    public int? PrimaryContactID { get; set; }
+
+    [ForeignKey("PrimaryContactID")]
+    public virtual Contact? PrimaryContact { get; set; }
+
+    public int? GalleryID { get; set; }
+
+    public virtual Gallery? Gallery { get; set; }
+
     public virtual ArtistPermissions ArtistPermissions { get; set; }
 
     public virtual ICollection<Linker_UserAndArtistToContact>? Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
