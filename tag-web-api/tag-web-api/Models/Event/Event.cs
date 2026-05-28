@@ -43,6 +43,12 @@ public class Event
 
     [ForeignKey("EventCategory")]
     public int? EventCategoryID { get; set; }
+
+    public int? GalleryID { get; set; }
+
+    public int? CoverPicID { get; set; }
+
+    public int? ProfilePicID { get; set; }
     
     // Navigation properties
     public Artist Artist { get; set; }
@@ -50,4 +56,10 @@ public class Event
     public EventCategory? EventCategory { get; set; }
     
     public Venue Venue { get; set; }
+
+    public Gallery? Gallery { get; set; }
+
+    public Picture? CoverPic { get; set; }
+
+    public Picture? ProfilePic { get; set; }
 }

@@ -39,9 +39,17 @@ namespace TAGWEBAPI.Controllers
             {
                 return NotFound();
             }
-            return await _context.Blogs
+            var blogs = await _context.Blogs
                 .Include(b => b.User)
+                .Include(b => b.Gallery!)
+                    .ThenInclude(g => g.GalleryItems)
+                    .ThenInclude(gi => gi.Picture)
+                .Include(b => b.Gallery!)
+                    .ThenInclude(g => g.GalleryItems)
+                    .ThenInclude(gi => gi.Video)
                 .ToListAsync();
+
+            return blogs;
         }
 
         [HttpGet("{id}")]
@@ -53,6 +61,12 @@ namespace TAGWEBAPI.Controllers
             }
             var blog = await _context.Blogs
                 .Include(b => b.User)
+                .Include(b => b.Gallery!)
+                    .ThenInclude(g => g.GalleryItems)
+                    .ThenInclude(gi => gi.Picture)
+                .Include(b => b.Gallery!)
+                    .ThenInclude(g => g.GalleryItems)
+                    .ThenInclude(gi => gi.Video)
                 .FirstOrDefaultAsync(b => b.BlogID == id);
 
             if (blog == null)
@@ -72,6 +86,12 @@ namespace TAGWEBAPI.Controllers
             }
             var blog = await _context.Blogs
                 .Include(b => b.User)
+                .Include(b => b.Gallery!)
+                    .ThenInclude(g => g.GalleryItems)
+                    .ThenInclude(gi => gi.Picture)
+                .Include(b => b.Gallery!)
+                    .ThenInclude(g => g.GalleryItems)
+                    .ThenInclude(gi => gi.Video)
                 .FirstOrDefaultAsync(b => b.Path == path);
 
             if (blog == null)
@@ -80,6 +100,274 @@ namespace TAGWEBAPI.Controllers
             }
 
             return blog;
+        }
+
+        private static string NormalizeResourceUrl(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : value.Trim().ToLowerInvariant();
+        }
+
+        private async Task<Gallery> EnsureBlogGalleryAsync(Blog blog)
+        {
+            if (blog.GalleryID.HasValue)
+            {
+                var existingGallery = await _context.Galleries
+                    .FirstOrDefaultAsync(gallery => gallery.GalleryID == blog.GalleryID.Value)
+                    .ConfigureAwait(false);
+
+                if (existingGallery != null)
+                {
+                    return existingGallery;
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            var gallery = new Gallery
+            {
+                ScopeType = "blog",
+                ScopeEntityID = blog.BlogID,
+                OwnerUserID = blog.UserID,
+                IsPrimary = true,
+                Title = $"Blog {blog.BlogID} Gallery",
+                Created = now,
+                Updated = now,
+            };
+
+            _context.Galleries.Add(gallery);
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            blog.GalleryID = gallery.GalleryID;
+            blog.Modified = now;
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            return gallery;
+        }
+
+        [HttpPost("{id}/gallery/video")]
+        public async Task<ActionResult<GalleryItem>> PostBlogGalleryVideo(int id, [FromBody] BlogVideoUpsertRequest request)
+        {
+            var blog = await _context.Blogs
+                .FirstOrDefaultAsync(candidate => candidate.BlogID == id)
+                .ConfigureAwait(false);
+
+            if (blog == null)
+            {
+                return NotFound();
+            }
+
+            var normalizedEmbed = NormalizeResourceUrl(request?.EmbedURL);
+            if (string.IsNullOrWhiteSpace(normalizedEmbed))
+            {
+                return BadRequest("EmbedURL is required.");
+            }
+
+            var normalizedSourceUrl = NormalizeResourceUrl(request?.URL);
+            var now = DateTime.UtcNow;
+
+            var video = await _context.Videos
+                .FirstOrDefaultAsync(candidate =>
+                    candidate.NormalizedEmbedURL == normalizedEmbed ||
+                    candidate.EmbedURL == request!.EmbedURL ||
+                    (!string.IsNullOrWhiteSpace(normalizedSourceUrl) && candidate.URL != null && candidate.URL.ToLower() == normalizedSourceUrl))
+                .ConfigureAwait(false);
+
+            if (video == null)
+            {
+                video = new Video
+                {
+                    EmbedURL = request!.EmbedURL!.Trim(),
+                    URL = request.URL,
+                    ThumbnailURL = request.ThumbnailURL,
+                    Title = request.Title,
+                    Byline = request.Byline,
+                    Description = request.Description,
+                    Provider = string.IsNullOrWhiteSpace(request.Provider) ? "vimeo" : request.Provider.Trim().ToLowerInvariant(),
+                    ProviderVideoID = request.ProviderVideoID,
+                    NormalizedEmbedURL = normalizedEmbed,
+                    Created = now,
+                    Updated = now,
+                };
+
+                _context.Videos.Add(video);
+                await _context.SaveChangesAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                video.URL = string.IsNullOrWhiteSpace(request?.URL) ? video.URL : request!.URL;
+                video.ThumbnailURL = string.IsNullOrWhiteSpace(request?.ThumbnailURL) ? video.ThumbnailURL : request!.ThumbnailURL;
+                video.Title = string.IsNullOrWhiteSpace(request?.Title) ? video.Title : request!.Title;
+                video.Byline = string.IsNullOrWhiteSpace(request?.Byline) ? video.Byline : request!.Byline;
+                video.Description = string.IsNullOrWhiteSpace(request?.Description) ? video.Description : request!.Description;
+                video.Provider = string.IsNullOrWhiteSpace(request?.Provider) ? video.Provider : request!.Provider!.Trim().ToLowerInvariant();
+                video.ProviderVideoID = string.IsNullOrWhiteSpace(request?.ProviderVideoID) ? video.ProviderVideoID : request!.ProviderVideoID;
+                video.NormalizedEmbedURL = normalizedEmbed;
+                video.Updated = now;
+                await _context.SaveChangesAsync().ConfigureAwait(false);
+            }
+
+            var gallery = await EnsureBlogGalleryAsync(blog).ConfigureAwait(false);
+
+            var existingGalleryItem = await _context.GalleryItems
+                .FirstOrDefaultAsync(item => item.GalleryID == gallery.GalleryID && item.VideoID == video.VideoID)
+                .ConfigureAwait(false);
+
+            if (existingGalleryItem == null)
+            {
+                var nextSortOrder = await _context.GalleryItems
+                    .Where(item => item.GalleryID == gallery.GalleryID)
+                    .Select(item => (int?)item.SortOrder)
+                    .MaxAsync()
+                    .ConfigureAwait(false) ?? -1;
+
+                existingGalleryItem = new GalleryItem
+                {
+                    GalleryID = gallery.GalleryID,
+                    VideoID = video.VideoID,
+                    SortOrder = nextSortOrder + 1,
+                    AddedByUserID = blog.UserID,
+                    Created = now,
+                };
+
+                _context.GalleryItems.Add(existingGalleryItem);
+                gallery.Updated = now;
+                await _context.SaveChangesAsync().ConfigureAwait(false);
+            }
+
+            // Reload the item with navigation properties
+            var reloaded = await _context.GalleryItems
+                .Include(gi => gi.Video)
+                .FirstAsync(gi => gi.GalleryItemID == existingGalleryItem.GalleryItemID)
+                .ConfigureAwait(false);
+
+            return Ok(reloaded);
+        }
+
+        [HttpPut("{id}/gallery/order")]
+        public async Task<ActionResult<IEnumerable<GalleryItem>>> PutBlogGalleryOrder(int id, [FromBody] BlogGalleryOrderRequest request)
+        {
+            var blog = await _context.Blogs
+                .FirstOrDefaultAsync(candidate => candidate.BlogID == id)
+                .ConfigureAwait(false);
+
+            if (blog == null)
+            {
+                return NotFound();
+            }
+
+            var orderedItems = request?.Items ?? new List<BlogGalleryOrderItemDto>();
+            var gallery = await EnsureBlogGalleryAsync(blog).ConfigureAwait(false);
+            var existingGalleryItems = await _context.GalleryItems
+                .Where(item => item.GalleryID == gallery.GalleryID)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            var captionByPictureId = existingGalleryItems
+                .Where(item => item.PictureID.HasValue)
+                .GroupBy(item => item.PictureID!.Value)
+                .ToDictionary(group => group.Key, group => group.First().CaptionOverride);
+
+            var captionByVideoId = existingGalleryItems
+                .Where(item => item.VideoID.HasValue)
+                .GroupBy(item => item.VideoID!.Value)
+                .ToDictionary(group => group.Key, group => group.First().CaptionOverride);
+
+            var resolvedItems = new List<(int? PictureID, int? VideoID, int SortOrder)>();
+
+            for (var index = 0; index < orderedItems.Count; index++)
+            {
+                var requestedItem = orderedItems[index];
+                var mediaType = (requestedItem.MediaType ?? string.Empty).Trim().ToLowerInvariant();
+
+                if (mediaType == "video")
+                {
+                    Video? resolvedVideo = null;
+                    if (requestedItem.VideoID.HasValue)
+                    {
+                        resolvedVideo = await _context.Videos
+                            .FirstOrDefaultAsync(video => video.VideoID == requestedItem.VideoID.Value)
+                            .ConfigureAwait(false);
+                    }
+
+                    if (resolvedVideo == null)
+                    {
+                        var normalizedVideoUrl = NormalizeResourceUrl(requestedItem.Url);
+                        var normalizedEmbedUrl = NormalizeResourceUrl(requestedItem.EmbedURL);
+
+                        resolvedVideo = await _context.Videos
+                            .FirstOrDefaultAsync(video =>
+                                (!string.IsNullOrWhiteSpace(normalizedEmbedUrl) && video.NormalizedEmbedURL == normalizedEmbedUrl) ||
+                                (!string.IsNullOrWhiteSpace(normalizedVideoUrl) && video.URL != null && video.URL.ToLower() == normalizedVideoUrl))
+                            .ConfigureAwait(false);
+                    }
+
+                    if (resolvedVideo == null)
+                    {
+                        return BadRequest($"Unable to resolve video at gallery index {index}.");
+                    }
+
+                    resolvedItems.Add((null, resolvedVideo.VideoID, index));
+                    continue;
+                }
+
+                Picture? resolvedPicture = null;
+                if (requestedItem.PictureID.HasValue)
+                {
+                    resolvedPicture = await _context.Pictures
+                        .FirstOrDefaultAsync(picture => picture.PictureID == requestedItem.PictureID.Value)
+                        .ConfigureAwait(false);
+                }
+
+                if (resolvedPicture == null)
+                {
+                    var normalizedPictureUrl = NormalizeResourceUrl(requestedItem.Url);
+                    resolvedPicture = await _context.Pictures
+                        .FirstOrDefaultAsync(picture =>
+                            picture.NormalizedURL == normalizedPictureUrl ||
+                            picture.URL == requestedItem.Url)
+                        .ConfigureAwait(false);
+                }
+
+                if (resolvedPicture == null)
+                {
+                    return BadRequest($"Unable to resolve picture at gallery index {index}.");
+                }
+
+                resolvedItems.Add((resolvedPicture.PictureID, null, index));
+            }
+
+            _context.GalleryItems.RemoveRange(existingGalleryItems);
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            var now = DateTime.UtcNow;
+            var replacementItems = resolvedItems.Select(item => new GalleryItem
+            {
+                GalleryID = gallery.GalleryID,
+                PictureID = item.PictureID,
+                VideoID = item.VideoID,
+                SortOrder = item.SortOrder,
+                CaptionOverride = item.PictureID.HasValue
+                    ? captionByPictureId.GetValueOrDefault(item.PictureID.Value)
+                    : (item.VideoID.HasValue ? captionByVideoId.GetValueOrDefault(item.VideoID.Value) : null),
+                AddedByUserID = blog.UserID,
+                Created = now,
+            }).ToList();
+
+            _context.GalleryItems.AddRange(replacementItems);
+            gallery.Updated = now;
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            // Reload gallery items with related Picture/Video data
+            var refreshedItems = await _context.GalleryItems
+                .Where(gi => gi.GalleryID == gallery.GalleryID)
+                .Include(gi => gi.Picture)
+                .Include(gi => gi.Video)
+                .OrderBy(gi => gi.SortOrder)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return Ok(refreshedItems);
         }
 
         [HttpPut("{id}")]
@@ -179,6 +467,134 @@ namespace TAGWEBAPI.Controllers
 
             return NoContent();
         }
+
+        [HttpGet("credit-roles")]
+        public async Task<ActionResult<IEnumerable<CreditRole>>> GetCreditRoles()
+        {
+            return await _context.CreditRoles
+                .Where(role => role.IsActive)
+                .OrderBy(role => role.DisplayOrder)
+                .ToListAsync()
+                .ConfigureAwait(false);
+        }
+
+        [HttpGet("{id}/credits")]
+        public async Task<ActionResult<IEnumerable<BlogCreditDto>>> GetBlogCredits(int id)
+        {
+            if (!BlogExists(id))
+            {
+                return NotFound();
+            }
+
+            var credits = await (
+                from credit in _context.MediaCredits
+                join role in _context.CreditRoles on credit.CreditRoleID equals role.CreditRoleID
+                join party in _context.CreditParties on credit.CreditPartyID equals party.CreditPartyID
+                where credit.BlogID == id
+                orderby credit.SortOrder, role.DisplayOrder, role.Label
+                select new BlogCreditDto
+                {
+                    MediaCreditID = credit.MediaCreditID,
+                    CreditRoleID = role.CreditRoleID,
+                    Role = role.Label,
+                    CreditPartyID = party.CreditPartyID,
+                    DisplayName = party.DisplayName,
+                    UserID = party.UserID,
+                    ArtistID = party.ArtistID,
+                    ExternalURL = party.ExternalURL,
+                    BioNote = party.BioNote,
+                    CreditText = credit.CreditText,
+                    SortOrder = credit.SortOrder,
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return Ok(credits);
+        }
+
+        [HttpPut("{id}/credits")]
+        public async Task<ActionResult<IEnumerable<BlogCreditDto>>> PutBlogCredits(int id, [FromBody] BlogCreditsUpsertRequest request)
+        {
+            if (!BlogExists(id))
+            {
+                return NotFound();
+            }
+
+            var submittedCredits = request?.Credits ?? new List<BlogCreditInputDto>();
+
+            foreach (var submitted in submittedCredits)
+            {
+                if (submitted.CreditRoleID <= 0)
+                {
+                    return BadRequest("Each credit must include a valid CreditRoleID.");
+                }
+
+                if (submitted.CreditPartyID.HasValue)
+                {
+                    continue;
+                }
+
+                if (submitted.Party == null)
+                {
+                    return BadRequest("Each credit must include either CreditPartyID or Party details.");
+                }
+
+                var hasLinkedIdentity = submitted.Party.UserID.HasValue || submitted.Party.ArtistID.HasValue;
+                var hasDisplayName = !string.IsNullOrWhiteSpace(submitted.Party.DisplayName);
+                if (!hasLinkedIdentity && !hasDisplayName)
+                {
+                    return BadRequest("Each Party requires a linked identity or a display name.");
+                }
+            }
+
+            var existingCredits = await _context.MediaCredits
+                .Where(credit => credit.BlogID == id)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            _context.MediaCredits.RemoveRange(existingCredits);
+
+            foreach (var submitted in submittedCredits.OrderBy(credit => credit.SortOrder))
+            {
+                var creditPartyId = submitted.CreditPartyID;
+
+                if (!creditPartyId.HasValue && submitted.Party != null)
+                {
+                    var party = new CreditParty
+                    {
+                        UserID = submitted.Party.UserID,
+                        ArtistID = submitted.Party.ArtistID,
+                        DisplayName = submitted.Party.DisplayName,
+                        ExternalURL = submitted.Party.ExternalURL,
+                        BioNote = submitted.Party.BioNote,
+                        Created = DateTime.UtcNow,
+                    };
+
+                    _context.CreditParties.Add(party);
+                    await _context.SaveChangesAsync().ConfigureAwait(false);
+                    creditPartyId = party.CreditPartyID;
+                }
+
+                if (!creditPartyId.HasValue)
+                {
+                    return BadRequest("Unable to resolve CreditPartyID for one or more credits.");
+                }
+
+                _context.MediaCredits.Add(new MediaCredit
+                {
+                    BlogID = id,
+                    CreditRoleID = submitted.CreditRoleID,
+                    CreditPartyID = creditPartyId.Value,
+                    CreditText = submitted.CreditText,
+                    SortOrder = submitted.SortOrder,
+                });
+            }
+
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            return await GetBlogCredits(id).ConfigureAwait(false);
+        }
+
 
         /// <summary>
         /// Reserves a slug for a new blog by creating a minimal blog record
@@ -415,5 +831,80 @@ namespace TAGWEBAPI.Controllers
         public int BlogID { get; set; }
         public string Path { get; set; }
         public string Title { get; set; }
+    }
+
+    public class BlogCreditsUpsertRequest
+    {
+        public List<BlogCreditInputDto> Credits { get; set; } = new();
+    }
+
+    public class BlogCreditInputDto
+    {
+        public int? CreditPartyID { get; set; }
+        public int CreditRoleID { get; set; }
+        public int SortOrder { get; set; }
+        public string? CreditText { get; set; }
+        public BlogCreditPartyInputDto? Party { get; set; }
+    }
+
+    public class BlogCreditPartyInputDto
+    {
+        public int? UserID { get; set; }
+        public int? ArtistID { get; set; }
+        public string? DisplayName { get; set; }
+        public string? ExternalURL { get; set; }
+        public string? BioNote { get; set; }
+    }
+
+    public class BlogCreditDto
+    {
+        public int MediaCreditID { get; set; }
+        public int CreditRoleID { get; set; }
+        public string Role { get; set; } = string.Empty;
+        public int CreditPartyID { get; set; }
+        public string? DisplayName { get; set; }
+        public int? UserID { get; set; }
+        public int? ArtistID { get; set; }
+        public string? ExternalURL { get; set; }
+        public string? BioNote { get; set; }
+        public string? CreditText { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class BlogVideoUpsertRequest
+    {
+        public string? URL { get; set; }
+
+        public string? EmbedURL { get; set; }
+
+        public string? ThumbnailURL { get; set; }
+
+        public string? Provider { get; set; }
+
+        public string? ProviderVideoID { get; set; }
+
+        public string? Title { get; set; }
+
+        public string? Byline { get; set; }
+
+        public string? Description { get; set; }
+    }
+
+    public class BlogGalleryOrderRequest
+    {
+        public List<BlogGalleryOrderItemDto> Items { get; set; } = new();
+    }
+
+    public class BlogGalleryOrderItemDto
+    {
+        public string? MediaType { get; set; }
+
+        public int? PictureID { get; set; }
+
+        public int? VideoID { get; set; }
+
+        public string? Url { get; set; }
+
+        public string? EmbedURL { get; set; }
     }
 }

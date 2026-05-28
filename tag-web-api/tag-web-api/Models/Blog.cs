@@ -34,6 +34,17 @@ public class Blog
     [ForeignKey("User")]
     public int UserID { get; set; }
 
+    public int? GalleryID { get; set; }
+
+    public int? CoverPicID { get; set; }
+
     [ValidateNever]
     public virtual User User { get; set; }
+
+    [ValidateNever]
+    public virtual Gallery? Gallery { get; set; }
+
+    [ValidateNever]
+    public virtual Picture? CoverPic { get; set; }
+
 }

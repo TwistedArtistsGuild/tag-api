@@ -40,7 +40,7 @@ public class ArtistController : ControllerBase
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
             .Include(a => a.Listings)
-                .ThenInclude(l => l.ProfilePic)
+                .ThenInclude(l => l.CoverPic)
             .ToListAsync()
             .ConfigureAwait(false);
 
@@ -63,7 +63,17 @@ public class ArtistController : ControllerBase
         {
             return NotFound();
         }
-        var artist = await _context.Artists.FindAsync(id);
+        var artist = await _context.Artists
+            .Include(a => a.ProfilePic)
+            .Include(a => a.CoverPic)
+            .Include(a => a.Gallery!)
+                .ThenInclude(g => g.GalleryItems)
+                .ThenInclude(gi => gi.Picture)
+            .Include(a => a.Gallery!)
+                .ThenInclude(g => g.GalleryItems)
+                .ThenInclude(gi => gi.Video)
+            .FirstOrDefaultAsync(a => a.ArtistID == id)
+            .ConfigureAwait(false);
 
         if (artist == null)
         {
@@ -76,10 +86,19 @@ public class ArtistController : ControllerBase
     [HttpGet("{slug}")]
     public async Task<ActionResult<Artist>> Get(string slug)
     {
+        var normalizedSlug = NormalizeSlug(slug);
+
         var artist = await _context.Set<Artist>()
+            .AsNoTracking()
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == slug.ToLower())
+            .Include(a => a.Gallery!)
+                .ThenInclude(g => g.GalleryItems)
+                .ThenInclude(gi => gi.Picture)
+            .Include(a => a.Gallery!)
+                .ThenInclude(g => g.GalleryItems)
+                .ThenInclude(gi => gi.Video)
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
             .ConfigureAwait(false);
         if (artist == null)
         {
@@ -87,6 +106,94 @@ public class ArtistController : ControllerBase
         }
 
         return artist;
+    }
+
+    [HttpGet("{slug}/contacts")]
+    [HttpGet("/api/artists/{slug}/contacts")]
+    public async Task<ActionResult<object>> GetArtistContacts(string slug)
+    {
+        if (_context.Artists == null)
+        {
+            return NotFound();
+        }
+
+        var normalizedSlug = NormalizeSlug(slug);
+
+        var artist = await _context.Artists
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
+            .ConfigureAwait(false);
+
+        if (artist == null)
+        {
+            return NotFound();
+        }
+
+        var contactLinks = await _context.Set<Linker_EntityToContact>()
+            .AsNoTracking()
+            .Where(l => l.ArtistID == artist.ArtistID && l.MakePublic)
+            .Include(l => l.Contact)
+                .ThenInclude(c => c.Address)
+            .Include(l => l.Contact)
+                .ThenInclude(c => c.PhoneContact)
+            .OrderBy(l => l.DisplayOrder)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var projected = contactLinks
+            .Select(l => new
+            {
+                linkId = l.Linker_EntityToContactID,
+                contactId = l.ContactID,
+                contactType = l.Contact.ContactType,
+                label = l.Contact.Label,
+                category = l.Contact.Category,
+                value = l.Contact.ContactType == "phone"
+                    ? l.Contact.PhoneContact != null ? l.Contact.PhoneContact.PhoneNumber : null
+                    : l.Contact.Value,
+                handle = l.Contact.Handle,
+                description = l.Contact.Description,
+                address = l.Contact.ContactType == "address"
+                    ? new
+                    {
+                        line1 = l.Contact.Address != null ? l.Contact.Address.AddressLine1 : null,
+                        line2 = l.Contact.Address != null ? l.Contact.Address.AddressLine2 : null,
+                        city = l.Contact.Address != null ? l.Contact.Address.City : null,
+                        region = l.Contact.Address != null ? l.Contact.Address.Region ?? l.Contact.Address.State : null,
+                        postalCode = l.Contact.Address != null ? l.Contact.Address.ZipCode : null,
+                        country = l.Contact.Address != null ? l.Contact.Address.Country : null,
+                        operationHours = l.Contact.Address != null ? l.Contact.Address.OperationHours : null,
+                    }
+                    : null,
+                displayOrder = l.DisplayOrder,
+            })
+            .ToList();
+
+        var links = projected
+            .Where(c => c.contactType == "url" && !string.IsNullOrWhiteSpace(c.value))
+            .Select(c => new
+            {
+                label = c.label ?? c.handle ?? "Website",
+                url = c.value,
+                purpose = c.description,
+                category = c.category,
+            })
+            .ToList();
+
+        return new
+        {
+            artistId = artist.ArtistID,
+            artistPath = artist.Path,
+            links,
+            contacts = projected,
+            byType = new
+            {
+                addresses = projected.Where(c => c.contactType == "address").ToList(),
+                phones = projected.Where(c => c.contactType == "phone").ToList(),
+                emails = projected.Where(c => c.contactType == "email").ToList(),
+                urls = projected.Where(c => c.contactType == "url").ToList(),
+            },
+        };
     }
 
     [HttpGet("{slug}/profile")]
@@ -97,8 +204,11 @@ public class ArtistController : ControllerBase
             return NotFound();
         }
 
+        var normalizedSlug = NormalizeSlug(slug);
+
         // Get the artist with all the required navigation properties included
         var artist = await _context.Artists
+            .AsNoTracking()
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
             .Include(a => a.Contacts)
@@ -108,7 +218,7 @@ public class ArtistController : ControllerBase
             .Include(a => a.Contacts)
                 .ThenInclude(c => c.ExternalLink)
             .AsSplitQuery() // This optimizes the query when including multiple collections
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == slug.ToLower())
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
             .ConfigureAwait(false);
 
         if (artist == null)
@@ -124,7 +234,7 @@ public class ArtistController : ControllerBase
             listings = await _context.Set<Listing>()
                 .Where(l => l.ArtistID == artist.ArtistID)
                 .Include(l => l.ArtCategory)
-                .Include(l => l.ProfilePic)
+                .Include(l => l.CoverPic)
                 .ToListAsync()
                 .ConfigureAwait(false);
         }
@@ -135,7 +245,7 @@ public class ArtistController : ControllerBase
 
             listings = await _context.Set<Listing>()
                 .Where(l => l.ArtistID == artist.ArtistID)
-                .Include(l => l.ProfilePic)
+                .Include(l => l.CoverPic)
                 .ToListAsync()
                 .ConfigureAwait(false);
         }
@@ -200,6 +310,11 @@ public class ArtistController : ControllerBase
                 links = externalLinks
             }
         };
+    }
+
+    private static string NormalizeSlug(string slug)
+    {
+        return slug.Trim().ToLowerInvariant();
     }
 
     [HttpPost]
@@ -644,6 +759,270 @@ public class ArtistController : ControllerBase
         }
         
         return !await query.AnyAsync(a => a.Path == path);
+    }
+
+    private static string NormalizeResourceUrl(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim().ToLowerInvariant();
+    }
+
+    private async Task<Gallery> EnsureArtistGalleryAsync(Artist artist)
+    {
+        if (artist.GalleryID.HasValue)
+        {
+            var existingGallery = await _context.Galleries
+                .FirstOrDefaultAsync(g => g.GalleryID == artist.GalleryID.Value)
+                .ConfigureAwait(false);
+
+            if (existingGallery != null)
+            {
+                return existingGallery;
+            }
+        }
+
+        var now = DateTime.UtcNow;
+        var gallery = new Gallery
+        {
+            ScopeType = "artist",
+            ScopeEntityID = artist.ArtistID,
+            OwnerArtistID = artist.ArtistID,
+            IsPrimary = true,
+            Title = $"Artist {artist.ArtistID} Gallery",
+            Created = now,
+            Updated = now,
+        };
+
+        _context.Galleries.Add(gallery);
+        await _context.SaveChangesAsync().ConfigureAwait(false);
+
+        artist.GalleryID = gallery.GalleryID;
+        await _context.SaveChangesAsync().ConfigureAwait(false);
+
+        return gallery;
+    }
+
+    [HttpPost("{id}/gallery/video")]
+    public async Task<ActionResult<GalleryItem>> PostArtistGalleryVideo(int id, [FromBody] BlogVideoUpsertRequest request)
+    {
+        var artist = await _context.Artists
+            .FirstOrDefaultAsync(a => a.ArtistID == id)
+            .ConfigureAwait(false);
+
+        if (artist == null)
+        {
+            return NotFound();
+        }
+
+        var normalizedEmbed = NormalizeResourceUrl(request?.EmbedURL);
+        if (string.IsNullOrWhiteSpace(normalizedEmbed))
+        {
+            return BadRequest("EmbedURL is required.");
+        }
+
+        var normalizedSourceUrl = NormalizeResourceUrl(request?.URL);
+        var now = DateTime.UtcNow;
+
+        var video = await _context.Videos
+            .FirstOrDefaultAsync(v =>
+                v.NormalizedEmbedURL == normalizedEmbed ||
+                v.EmbedURL == request!.EmbedURL ||
+                (!string.IsNullOrWhiteSpace(normalizedSourceUrl) && v.URL != null && v.URL.ToLower() == normalizedSourceUrl))
+            .ConfigureAwait(false);
+
+        if (video == null)
+        {
+            video = new Video
+            {
+                EmbedURL = request!.EmbedURL!.Trim(),
+                URL = request.URL,
+                ThumbnailURL = request.ThumbnailURL,
+                Title = request.Title,
+                Byline = request.Byline,
+                Description = request.Description,
+                Provider = string.IsNullOrWhiteSpace(request.Provider) ? "vimeo" : request.Provider.Trim().ToLowerInvariant(),
+                ProviderVideoID = request.ProviderVideoID,
+                NormalizedEmbedURL = normalizedEmbed,
+                ArtistID = artist.ArtistID,
+                Created = now,
+                Updated = now,
+            };
+
+            _context.Videos.Add(video);
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+        }
+        else
+        {
+            video.URL = string.IsNullOrWhiteSpace(request?.URL) ? video.URL : request!.URL;
+            video.ThumbnailURL = string.IsNullOrWhiteSpace(request?.ThumbnailURL) ? video.ThumbnailURL : request!.ThumbnailURL;
+            video.Title = string.IsNullOrWhiteSpace(request?.Title) ? video.Title : request!.Title;
+            video.Byline = string.IsNullOrWhiteSpace(request?.Byline) ? video.Byline : request!.Byline;
+            video.Description = string.IsNullOrWhiteSpace(request?.Description) ? video.Description : request!.Description;
+            video.Provider = string.IsNullOrWhiteSpace(request?.Provider) ? video.Provider : request!.Provider!.Trim().ToLowerInvariant();
+            video.ProviderVideoID = string.IsNullOrWhiteSpace(request?.ProviderVideoID) ? video.ProviderVideoID : request!.ProviderVideoID;
+            video.NormalizedEmbedURL = normalizedEmbed;
+            video.Updated = now;
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        var gallery = await EnsureArtistGalleryAsync(artist).ConfigureAwait(false);
+
+        var existingGalleryItem = await _context.GalleryItems
+            .FirstOrDefaultAsync(item => item.GalleryID == gallery.GalleryID && item.VideoID == video.VideoID)
+            .ConfigureAwait(false);
+
+        if (existingGalleryItem == null)
+        {
+            var nextSortOrder = await _context.GalleryItems
+                .Where(item => item.GalleryID == gallery.GalleryID)
+                .Select(item => (int?)item.SortOrder)
+                .MaxAsync()
+                .ConfigureAwait(false) ?? -1;
+
+            existingGalleryItem = new GalleryItem
+            {
+                GalleryID = gallery.GalleryID,
+                VideoID = video.VideoID,
+                SortOrder = nextSortOrder + 1,
+                Created = now,
+            };
+
+            _context.GalleryItems.Add(existingGalleryItem);
+            gallery.Updated = now;
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        var reloaded = await _context.GalleryItems
+            .Include(gi => gi.Video)
+            .FirstAsync(gi => gi.GalleryItemID == existingGalleryItem.GalleryItemID)
+            .ConfigureAwait(false);
+
+        return Ok(reloaded);
+    }
+
+    [HttpPut("{id}/gallery/order")]
+    public async Task<ActionResult<IEnumerable<GalleryItem>>> PutArtistGalleryOrder(int id, [FromBody] BlogGalleryOrderRequest request)
+    {
+        var artist = await _context.Artists
+            .FirstOrDefaultAsync(a => a.ArtistID == id)
+            .ConfigureAwait(false);
+
+        if (artist == null)
+        {
+            return NotFound();
+        }
+
+        var orderedItems = request?.Items ?? new List<BlogGalleryOrderItemDto>();
+        var gallery = await EnsureArtistGalleryAsync(artist).ConfigureAwait(false);
+        var existingGalleryItems = await _context.GalleryItems
+            .Where(item => item.GalleryID == gallery.GalleryID)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var captionByPictureId = existingGalleryItems
+            .Where(item => item.PictureID.HasValue)
+            .GroupBy(item => item.PictureID!.Value)
+            .ToDictionary(group => group.Key, group => group.First().CaptionOverride);
+
+        var captionByVideoId = existingGalleryItems
+            .Where(item => item.VideoID.HasValue)
+            .GroupBy(item => item.VideoID!.Value)
+            .ToDictionary(group => group.Key, group => group.First().CaptionOverride);
+
+        var resolvedItems = new List<(int? PictureID, int? VideoID, int SortOrder)>();
+
+        for (var index = 0; index < orderedItems.Count; index++)
+        {
+            var requestedItem = orderedItems[index];
+            var mediaType = (requestedItem.MediaType ?? string.Empty).Trim().ToLowerInvariant();
+
+            if (mediaType == "video")
+            {
+                Video? resolvedVideo = null;
+                if (requestedItem.VideoID.HasValue)
+                {
+                    resolvedVideo = await _context.Videos
+                        .FirstOrDefaultAsync(v => v.VideoID == requestedItem.VideoID.Value)
+                        .ConfigureAwait(false);
+                }
+
+                if (resolvedVideo == null)
+                {
+                    var normalizedVideoUrl = NormalizeResourceUrl(requestedItem.Url);
+                    var normalizedEmbedUrl = NormalizeResourceUrl(requestedItem.EmbedURL);
+
+                    resolvedVideo = await _context.Videos
+                        .FirstOrDefaultAsync(v =>
+                            (!string.IsNullOrWhiteSpace(normalizedEmbedUrl) && v.NormalizedEmbedURL == normalizedEmbedUrl) ||
+                            (!string.IsNullOrWhiteSpace(normalizedVideoUrl) && v.URL != null && v.URL.ToLower() == normalizedVideoUrl))
+                        .ConfigureAwait(false);
+                }
+
+                if (resolvedVideo == null)
+                {
+                    return BadRequest($"Unable to resolve video at gallery index {index}.");
+                }
+
+                resolvedItems.Add((null, resolvedVideo.VideoID, index));
+                continue;
+            }
+
+            Picture? resolvedPicture = null;
+            if (requestedItem.PictureID.HasValue)
+            {
+                resolvedPicture = await _context.Pictures
+                    .FirstOrDefaultAsync(p => p.PictureID == requestedItem.PictureID.Value)
+                    .ConfigureAwait(false);
+            }
+
+            if (resolvedPicture == null)
+            {
+                var normalizedPictureUrl = NormalizeResourceUrl(requestedItem.Url);
+                resolvedPicture = await _context.Pictures
+                    .FirstOrDefaultAsync(p =>
+                        p.NormalizedURL == normalizedPictureUrl ||
+                        p.URL == requestedItem.Url)
+                    .ConfigureAwait(false);
+            }
+
+            if (resolvedPicture == null)
+            {
+                return BadRequest($"Unable to resolve picture at gallery index {index}.");
+            }
+
+            resolvedItems.Add((resolvedPicture.PictureID, null, index));
+        }
+
+        _context.GalleryItems.RemoveRange(existingGalleryItems);
+        await _context.SaveChangesAsync().ConfigureAwait(false);
+
+        var now = DateTime.UtcNow;
+        var replacementItems = resolvedItems.Select(item => new GalleryItem
+        {
+            GalleryID = gallery.GalleryID,
+            PictureID = item.PictureID,
+            VideoID = item.VideoID,
+            SortOrder = item.SortOrder,
+            CaptionOverride = item.PictureID.HasValue
+                ? captionByPictureId.GetValueOrDefault(item.PictureID.Value)
+                : (item.VideoID.HasValue ? captionByVideoId.GetValueOrDefault(item.VideoID.Value) : null),
+            Created = now,
+        }).ToList();
+
+        _context.GalleryItems.AddRange(replacementItems);
+        gallery.Updated = now;
+        await _context.SaveChangesAsync().ConfigureAwait(false);
+
+        var refreshedItems = await _context.GalleryItems
+            .Where(gi => gi.GalleryID == gallery.GalleryID)
+            .Include(gi => gi.Picture)
+            .Include(gi => gi.Video)
+            .OrderBy(gi => gi.SortOrder)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        return Ok(refreshedItems);
     }
 }
 

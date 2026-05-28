@@ -36,7 +36,13 @@ public class Picture
 
     public string? URL { get; set; }
 
+    public string? NormalizedURL { get; set; }
+
+    public string? Byline { get; set; }
+
     public int? UserID { get; set; }
+
+    public DateTime Updated { get; set; }
 
     public int? Width { get; set; }
 }
