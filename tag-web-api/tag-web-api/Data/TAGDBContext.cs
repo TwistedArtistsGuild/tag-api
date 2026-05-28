@@ -106,6 +106,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<ListingImpression> ListingImpressions { get; set; }
 
+        public DbSet<ArtistImpression> ArtistImpressions { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
