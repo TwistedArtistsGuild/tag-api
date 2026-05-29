@@ -1,17 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 
-[Table("listing_impressions", Schema = "public")]
-public class ListingImpression
+[Table("artist_impressions", Schema = "public")]
+public class ArtistImpression
 {
     [Key]
     [Column("id")]
     public long Id { get; set; }
 
-    [Column("listing_id")]
-    public int ListingId { get; set; }
+    [Column("artist_id")]
+    public int ArtistId { get; set; }
 
     [Column("impression_id")]
     public int ImpressionId { get; set; }
