@@ -19,5 +19,7 @@ public class PrimaryImpressionRequest
 public enum TargetType
 {
     Listing = 1,
-    Artist = 2
+    Artist = 2,
+    Comment = 3,
+    Blog = 4
 }
