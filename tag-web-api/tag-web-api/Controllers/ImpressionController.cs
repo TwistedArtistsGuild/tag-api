@@ -52,6 +52,18 @@ public class ImpressionController : ControllerBase
                         .Where(ai => ai.ArtistId == targetId && ai.ImpressionId == impression.Id)
                         .CountAsync();
                 }
+                else if (targetType == TargetType.Comment)
+                {
+                    count = await _context.CommentImpressions
+                        .Where(ci => ci.CommentId == targetId && ci.ImpressionId == impression.Id)
+                        .CountAsync();
+                }
+                else if (targetType == TargetType.Blog)
+                {
+                    count = await _context.BlogImpressions
+                        .Where(bi => bi.BlogId == targetId && bi.ImpressionId == impression.Id)
+                        .CountAsync();
+                }
 
                 result.Add(new PrimaryImpressionDto
                 {
@@ -74,7 +86,7 @@ public class ImpressionController : ControllerBase
     }
 
     /// <summary>
-    /// React to a listing or artist with an impression
+    /// React to a listing, artist, or comment with an impression
     /// </summary>
     [HttpPost("react")]
     public async Task<ActionResult> ReactToTarget([FromBody] ReactImpressionRequest request)
@@ -94,8 +106,8 @@ public class ImpressionController : ControllerBase
             {
                 // Check if user already reacted with this impression
                 var existingReaction = await _context.ListingImpressions
-                    .FirstOrDefaultAsync(li => li.ListingId == request.TargetId
-                        && li.UserId == request.UserId
+                    .FirstOrDefaultAsync(li => li.ListingId == request.TargetId 
+                        && li.UserId == request.UserId 
                         && li.ImpressionId == request.ImpressionId);
 
                 if (existingReaction != null)
@@ -125,8 +137,8 @@ public class ImpressionController : ControllerBase
             {
                 // Check if user already reacted with this impression
                 var existingReaction = await _context.ArtistImpressions
-                    .FirstOrDefaultAsync(ai => ai.ArtistId == request.TargetId
-                        && ai.UserId == request.UserId
+                    .FirstOrDefaultAsync(ai => ai.ArtistId == request.TargetId 
+                        && ai.UserId == request.UserId 
                         && ai.ImpressionId == request.ImpressionId);
 
                 if (existingReaction != null)
@@ -148,6 +160,68 @@ public class ImpressionController : ControllerBase
                     };
 
                     _context.ArtistImpressions.Add(newReaction);
+                    await _context.SaveChangesAsync();
+                    return Ok(new { message = "Reaction added", removed = false });
+                }
+            }
+            else if (request.TargetType == TargetType.Comment)
+            {
+                // Check if user already reacted with this impression
+                var existingReaction = await _context.CommentImpressions
+                    .FirstOrDefaultAsync(ci => ci.CommentId == request.TargetId 
+                        && ci.UserId == request.UserId 
+                        && ci.ImpressionId == request.ImpressionId);
+
+                if (existingReaction != null)
+                {
+                    // Remove the reaction (toggle off)
+                    _context.CommentImpressions.Remove(existingReaction);
+                    await _context.SaveChangesAsync();
+                    return Ok(new { message = "Reaction removed", removed = true });
+                }
+                else
+                {
+                    // Add new reaction
+                    var newReaction = new CommentImpression
+                    {
+                        CommentId = request.TargetId,
+                        ImpressionId = request.ImpressionId,
+                        UserId = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.CommentImpressions.Add(newReaction);
+                    await _context.SaveChangesAsync();
+                    return Ok(new { message = "Reaction added", removed = false });
+                }
+            }
+            else if (request.TargetType == TargetType.Blog)
+            {
+                // Check if user already reacted with this impression
+                var existingReaction = await _context.BlogImpressions
+                    .FirstOrDefaultAsync(bi => bi.BlogId == request.TargetId 
+                        && bi.UserId == request.UserId 
+                        && bi.ImpressionId == request.ImpressionId);
+
+                if (existingReaction != null)
+                {
+                    // Remove the reaction (toggle off)
+                    _context.BlogImpressions.Remove(existingReaction);
+                    await _context.SaveChangesAsync();
+                    return Ok(new { message = "Reaction removed", removed = true });
+                }
+                else
+                {
+                    // Add new reaction
+                    var newReaction = new BlogImpression
+                    {
+                        BlogId = request.TargetId,
+                        ImpressionId = request.ImpressionId,
+                        UserId = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.BlogImpressions.Add(newReaction);
                     await _context.SaveChangesAsync();
                     return Ok(new { message = "Reaction added", removed = false });
                 }

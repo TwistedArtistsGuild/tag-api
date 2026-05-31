@@ -30,6 +30,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<Blog> Blogs { get; set; }
 
+        public DbSet<BlogImpression> BlogImpressions { get; set; }
+
         public DbSet<DigitalDeliverySpecs> DigitalDeliverySpecs { get; set; }
 
         public DbSet<Event> Events { get; set; }
@@ -98,6 +100,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<User> Users { get; set; }
 
+        public DbSet<NextAuthUser> NextAuthUsers { get; set; }
+
         public DbSet<UserPreference> UserPreferences { get; set; }
 
         public DbSet<UserPrivacy> UserPrivacies { get; set; }
@@ -129,6 +133,10 @@ namespace TAGWEBAPI.Data
         public DbSet<Linker_EntityToContact> Linker_EntityToContacts { get; set; }
 
         public DbSet<ArtistImpression> ArtistImpressions { get; set; }
+
+        public DbSet<Comment> Comments { get; set; }
+
+        public DbSet<CommentImpression> CommentImpressions { get; set; }
 
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
