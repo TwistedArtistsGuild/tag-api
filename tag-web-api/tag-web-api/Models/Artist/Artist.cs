@@ -19,8 +19,17 @@ public class Artist
 
     public string? Biography { get; set; }
 
-    [Required]
-    public string Byline { get; set; }
+    public string? Country { get; set; }
+
+    public string? StateOrProvince { get; set; }
+
+    public string? BusinessEntityType { get; set; }
+
+    public bool? IsFormallyIncorporated { get; set; }
+
+    public string? Byline { get; set; }
+
+    public int? IncorporatedYear { get; set; }
 
     [Required]
     public string Path { get; set; }

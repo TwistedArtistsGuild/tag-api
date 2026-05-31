@@ -18,7 +18,26 @@ public class ArtistConfiguration : IEntityTypeConfiguration<Artist>
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         builder.Property(a => a.Byline)
-            .HasMaxLength(1000);
+            .HasMaxLength(1000)
+            .IsRequired(false);
+
+        builder.Property(a => a.IncorporatedYear)
+            .IsRequired(false);
+
+        builder.Property(a => a.Country)
+            .HasMaxLength(120)
+            .IsRequired(false);
+
+        builder.Property(a => a.StateOrProvince)
+            .HasMaxLength(120)
+            .IsRequired(false);
+
+        builder.Property(a => a.BusinessEntityType)
+            .HasMaxLength(80)
+            .IsRequired(false);
+
+        builder.Property(a => a.IsFormallyIncorporated)
+            .IsRequired(false);
 
         builder.Property(a => a.Path)
             .IsRequired()

@@ -108,6 +108,28 @@ public class ArtistController : ControllerBase
         return artist;
     }
 
+    [HttpGet("check-slug/{slug}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<object>> CheckArtistSlug(string slug, [FromQuery] int? excludeId = null)
+    {
+        var normalizedSlug = NormalizeSlug(slug);
+
+        if (!ValidPathRegex.IsMatch(normalizedSlug))
+        {
+            return BadRequest(new { available = false, message = "Invalid slug format." });
+        }
+
+        var isAvailable = await IsPathUniqueAsync(normalizedSlug, excludeId);
+        if (!isAvailable)
+        {
+            return Conflict(new { available = false, message = "Slug is already in use." });
+        }
+
+        return Ok(new { available = true, slug = normalizedSlug });
+    }
+
     [HttpGet("{slug}/contacts")]
     [HttpGet("/api/artists/{slug}/contacts")]
     public async Task<ActionResult<object>> GetArtistContacts(string slug)
@@ -314,7 +336,9 @@ public class ArtistController : ControllerBase
 
     private static string NormalizeSlug(string slug)
     {
-        return slug.Trim().ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(slug)
+            ? string.Empty
+            : slug.Trim().ToLowerInvariant();
     }
 
     [HttpPost]
@@ -370,12 +394,14 @@ public class ArtistController : ControllerBase
         }
 
         // Validate the slug format and availability
-        if (!ValidPathRegex.IsMatch(request.Slug))
+        var normalizedSlug = NormalizeSlug(request.Slug);
+
+        if (!ValidPathRegex.IsMatch(normalizedSlug))
         {
             return BadRequest("Invalid slug format.");
         }
 
-        if (!await IsPathUniqueAsync(request.Slug))
+        if (!await IsPathUniqueAsync(normalizedSlug))
         {
             return Conflict("Slug is already in use.");
         }
@@ -383,11 +409,15 @@ public class ArtistController : ControllerBase
         // Create a new artist with minimal required fields
         var artist = new Artist
         {
-            Path = request.Slug,
-            Title = request.Title ?? request.Slug, // Default to slug if title isn't provided
+            Path = normalizedSlug,
+            Title = request.Title ?? normalizedSlug,
+            Country = string.IsNullOrWhiteSpace(request.Country) ? null : request.Country.Trim(),
+            StateOrProvince = string.IsNullOrWhiteSpace(request.StateOrProvince) ? null : request.StateOrProvince.Trim(),
+            BusinessEntityType = string.IsNullOrWhiteSpace(request.BusinessEntityType) ? null : request.BusinessEntityType.Trim(),
+            IsFormallyIncorporated = request.IsFormallyIncorporated,
+            IncorporatedYear = request.IncorporatedYear,
             Since = DateTime.UtcNow,
             Applied = DateTime.UtcNow,
-            // Other fields will be filled in later during the full update
         };
 
         try
@@ -401,6 +431,11 @@ public class ArtistController : ControllerBase
                 ArtistID = artist.ArtistID,
                 Path = artist.Path,
                 Title = artist.Title,
+                Country = artist.Country,
+                StateOrProvince = artist.StateOrProvince,
+                BusinessEntityType = artist.BusinessEntityType,
+                IsFormallyIncorporated = artist.IsFormallyIncorporated,
+                IncorporatedYear = artist.IncorporatedYear,
             };
 
             return CreatedAtAction(nameof(Get), new { id = artist.ArtistID }, response);
@@ -435,7 +470,9 @@ public class ArtistController : ControllerBase
         }
 
         // If no change, return success immediately
-        if (artist.Path == request.Slug)
+        var normalizedSlug = NormalizeSlug(request.Slug);
+
+        if (NormalizeSlug(artist.Path) == normalizedSlug)
         {
             return Ok(new ArtistSlugReservationResponse
             {
@@ -446,18 +483,18 @@ public class ArtistController : ControllerBase
         }
 
         // Validate the slug format and availability
-        if (!ValidPathRegex.IsMatch(request.Slug))
+        if (!ValidPathRegex.IsMatch(normalizedSlug))
         {
             return BadRequest("Invalid slug format.");
         }
 
-        if (!await IsPathUniqueAsync(request.Slug, id))
+        if (!await IsPathUniqueAsync(normalizedSlug, id))
         {
             return Conflict("Slug is already in use.");
         }
 
         // Update the slug
-        artist.Path = request.Slug;
+        artist.Path = normalizedSlug;
 
         try
         {
@@ -537,6 +574,18 @@ public class ArtistController : ControllerBase
             existingArtist.Applied = DateTime.SpecifyKind(parsedApplied.ToUniversalTime(), DateTimeKind.Utc);
         }
         if (props.TryGetValue("Biography", out p)) existingArtist.Biography = GetString(p) ?? existingArtist.Biography;
+        if (props.TryGetValue("Country", out p)) existingArtist.Country = GetString(p);
+        if (props.TryGetValue("StateOrProvince", out p)) existingArtist.StateOrProvince = GetString(p);
+        if (props.TryGetValue("BusinessEntityType", out p)) existingArtist.BusinessEntityType = GetString(p);
+        if (props.TryGetValue("IsFormallyIncorporated", out p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            existingArtist.IsFormallyIncorporated = p.GetBoolean();
+        }
+        if (props.TryGetValue("IncorporatedYear", out p))
+        {
+            if (p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var incYear)) existingArtist.IncorporatedYear = incYear;
+            else if (p.ValueKind == JsonValueKind.Null) existingArtist.IncorporatedYear = null;
+        }
         if (props.TryGetValue("Byline", out p)) existingArtist.Byline = GetString(p) ?? existingArtist.Byline;
         if (props.TryGetValue("Path", out p))
         {
@@ -637,6 +686,18 @@ public class ArtistController : ControllerBase
             existingArtist.Applied = DateTime.SpecifyKind(parsedApplied.ToUniversalTime(), DateTimeKind.Utc);
         }
         if (props.TryGetValue("Biography", out p)) existingArtist.Biography = GetString(p) ?? existingArtist.Biography;
+        if (props.TryGetValue("Country", out p)) existingArtist.Country = GetString(p);
+        if (props.TryGetValue("StateOrProvince", out p)) existingArtist.StateOrProvince = GetString(p);
+        if (props.TryGetValue("BusinessEntityType", out p)) existingArtist.BusinessEntityType = GetString(p);
+        if (props.TryGetValue("IsFormallyIncorporated", out p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            existingArtist.IsFormallyIncorporated = p.GetBoolean();
+        }
+        if (props.TryGetValue("IncorporatedYear", out p))
+        {
+            if (p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var incYear)) existingArtist.IncorporatedYear = incYear;
+            else if (p.ValueKind == JsonValueKind.Null) existingArtist.IncorporatedYear = null;
+        }
         if (props.TryGetValue("Byline", out p)) existingArtist.Byline = GetString(p) ?? existingArtist.Byline;
         if (props.TryGetValue("Path", out p))
         {
@@ -751,6 +812,8 @@ public class ArtistController : ControllerBase
     // Add a helper method to validate paths
     private async Task<bool> IsPathUniqueAsync(string path, int? artistId = null)
     {
+        var normalizedPath = NormalizeSlug(path);
+
         var query = _context.Artists.AsQueryable();
         
         if (artistId.HasValue)
@@ -758,7 +821,7 @@ public class ArtistController : ControllerBase
             query = query.Where(a => a.ArtistID != artistId.Value);
         }
         
-        return !await query.AnyAsync(a => a.Path == path);
+        return !await query.AnyAsync(a => (a.Path ?? string.Empty).Trim().ToLower() == normalizedPath);
     }
 
     private static string NormalizeResourceUrl(string? value)
@@ -1035,6 +1098,20 @@ public class ArtistSlugReservationRequest
     
     [StringLength(1000)]
     public string Title { get; set; }
+
+    [StringLength(120)]
+    public string? Country { get; set; }
+
+    [StringLength(120)]
+    public string? StateOrProvince { get; set; }
+
+    [StringLength(80)]
+    public string? BusinessEntityType { get; set; }
+
+    public bool? IsFormallyIncorporated { get; set; }
+
+    [Range(1800, 2100)]
+    public int? IncorporatedYear { get; set; }
 }
 
 public class ArtistSlugUpdateRequest
@@ -1049,4 +1126,9 @@ public class ArtistSlugReservationResponse
     public int ArtistID { get; set; }
     public string Path { get; set; }
     public string Title { get; set; }
+    public string? Country { get; set; }
+    public string? StateOrProvince { get; set; }
+    public string? BusinessEntityType { get; set; }
+    public bool? IsFormallyIncorporated { get; set; }
+    public int? IncorporatedYear { get; set; }
 }
