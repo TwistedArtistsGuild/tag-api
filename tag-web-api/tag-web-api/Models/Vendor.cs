@@ -30,8 +30,7 @@ public class Vendor
 
     public string POCPhone { get; set; }
 
-    public int? PrimaryContactID { get; set; }
+    public bool IsPublished { get; set; }
 
-    [System.ComponentModel.DataAnnotations.Schema.ForeignKey("PrimaryContactID")]
-    public virtual Contact? PrimaryContact { get; set; }
+    public bool IsModerationBlocked { get; set; }
 }

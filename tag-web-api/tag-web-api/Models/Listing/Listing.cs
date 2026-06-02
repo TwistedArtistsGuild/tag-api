@@ -51,6 +51,10 @@ public class Listing
 
     public DateTime? Work_CompletionDate { get; set; }
 
+    public bool IsPublished { get; set; }
+
+    public bool IsModerationBlocked { get; set; }
+
     [Required]
     public string Path { get; set; } = string.Empty;
 

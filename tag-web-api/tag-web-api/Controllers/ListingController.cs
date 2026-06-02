@@ -37,10 +37,31 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
             return await _context.Listings
+                .Where(l => l.IsPublished && !l.IsModerationBlocked && l.Artist != null && l.Artist.IsPublished && !l.Artist.IsModerationBlocked)
                 .Include(l => l.Artist)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
                 .ToListAsync();
+        }
+
+        [HttpGet("admin/unpublished")]
+        public async Task<ActionResult<IEnumerable<Listing>>> GetUnpublished([FromQuery] int moderatorUserId)
+        {
+            if (!await IsModeratorAsync(moderatorUserId).ConfigureAwait(false))
+            {
+                return Forbid();
+            }
+
+            var listings = await _context.Listings
+                .Where(l => !l.IsPublished || l.IsModerationBlocked)
+                .Include(l => l.Artist)
+                .Include(l => l.ArtCategory)
+                .Include(l => l.CoverPic)
+                .OrderByDescending(l => l.Created)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return Ok(listings);
         }
 
         // Mirror frontend convention: byID route to fetch listing by numeric ID
@@ -94,7 +115,9 @@ namespace TAGWEBAPI.Controllers
                     .ThenInclude(gi => gi.Video)
                 .FirstOrDefaultAsync(l =>
                     l.Artist.Path.ToLower() == normalizedArtistPath &&
-                    l.Path.ToLower() == normalizedListingPath);
+                        l.Path.ToLower() == normalizedListingPath &&
+                        l.IsPublished && !l.IsModerationBlocked &&
+                        l.Artist.IsPublished && !l.Artist.IsModerationBlocked);
 
             if (listing == null)
             {
@@ -117,7 +140,7 @@ namespace TAGWEBAPI.Controllers
                 .Include(l => l.Artist)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
-                .Where(l => l.Artist.ArtistID == id)
+                .Where(l => l.Artist.ArtistID == id && l.IsPublished && !l.IsModerationBlocked && l.Artist.IsPublished && !l.Artist.IsModerationBlocked)
                 .ToListAsync();
 
             // 3. Check if the list is empty
@@ -364,6 +387,20 @@ namespace TAGWEBAPI.Controllers
             return string.IsNullOrWhiteSpace(value)
                 ? string.Empty
                 : value.Trim().ToLowerInvariant();
+        }
+
+        private async Task<bool> IsModeratorAsync(int userId)
+        {
+            if (userId <= 0)
+            {
+                return false;
+            }
+
+            return await _context.Users
+                .Where(u => u.UserID == userId)
+                .Select(u => u.Moderator)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
         }
 
         private async Task<Gallery> EnsureListingGalleryAsync(Listing listing)

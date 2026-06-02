@@ -39,6 +39,21 @@ namespace TAGWEBAPI.Controllers
             return userSettings;
         }
 
+        [HttpGet("by-user/{userId}")]
+        public async Task<ActionResult<UserSettings>> GetUserSettingsByUserId(int userId)
+        {
+            var userSettings = await this.context.Set<UserSettings>()
+                .FirstOrDefaultAsync(row => row.UserID == userId)
+                .ConfigureAwait(false);
+
+            if (userSettings == null)
+            {
+                return this.NotFound();
+            }
+
+            return userSettings;
+        }
+
         [HttpPost]
         public async Task<ActionResult<UserSettings>> PostUserSettings(UserSettings userSettings)
         {

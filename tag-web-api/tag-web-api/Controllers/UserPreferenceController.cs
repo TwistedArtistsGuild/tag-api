@@ -39,6 +39,21 @@ namespace TAGWEBAPI.Controllers
             return userPreference;
         }
 
+        [HttpGet("by-user/{userId}")]
+        public async Task<ActionResult<UserPreference>> GetUserPreferenceByUserId(int userId)
+        {
+            var userPreference = await this.context.Set<UserPreference>()
+                .FirstOrDefaultAsync(row => row.UserID == userId)
+                .ConfigureAwait(false);
+
+            if (userPreference == null)
+            {
+                return this.NotFound();
+            }
+
+            return userPreference;
+        }
+
         [HttpPost]
         public async Task<ActionResult<UserPreference>> PostUserPreference(UserPreference userPreference)
         {

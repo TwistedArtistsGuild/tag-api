@@ -1,4 +1,4 @@
-// <copyright file="User.cs" company="Twisted Artists Guild">
+// <copyright file="UserDetails.cs" company="Twisted Artists Guild">
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
@@ -25,8 +25,6 @@ public class User
 
     public bool ArtistInGoodStanding { get; set; }
 
-    public bool ArtistMember { get; set; }
-
     public DateTime? BannedDate { get; set; }
 
     public string? BannedReason { get; set; }
@@ -51,6 +49,10 @@ public class User
 
     public bool HideFromPublic { get; set; }
 
+    public bool IsPublished { get; set; }
+
+    public bool IsModerationBlocked { get; set; }
+
     public DateTime? DeathDate { get; set; }
 
     public string? Gender { get; set; }
@@ -60,11 +62,6 @@ public class User
     public int? CoverPicID { get; set; }
 
     public int? ProfilePicID { get; set; }
-
-    public int? PrimaryContactID { get; set; }
-
-    [System.ComponentModel.DataAnnotations.Schema.ForeignKey("PrimaryContactID")]
-    public virtual Contact? PrimaryContact { get; set; }
 
     public virtual Gallery? Gallery { get; set; }
 

@@ -31,6 +31,10 @@ public class Artist
 
     public int? IncorporatedYear { get; set; }
 
+    public bool IsPublished { get; set; }
+
+    public bool IsModerationBlocked { get; set; }
+
     [Required]
     public string Path { get; set; }
 
@@ -52,11 +56,6 @@ public class Artist
     public int? ProfilePicID { get; set; }
 
     public virtual Picture? ProfilePic { get; set; }
-
-    public int? PrimaryContactID { get; set; }
-
-    [ForeignKey("PrimaryContactID")]
-    public virtual Contact? PrimaryContact { get; set; }
 
     public int? GalleryID { get; set; }
 

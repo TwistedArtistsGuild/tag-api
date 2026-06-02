@@ -77,6 +77,14 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
         builder.Property(l => l.GalleryID)
             .IsRequired(false);
 
+        builder.Property(l => l.IsPublished)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(l => l.IsModerationBlocked)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.HasOne(l => l.CoverPic)
             .WithMany()
             .HasForeignKey(l => l.CoverPicID)

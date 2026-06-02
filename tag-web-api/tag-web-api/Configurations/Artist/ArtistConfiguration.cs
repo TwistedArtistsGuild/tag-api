@@ -39,6 +39,14 @@ public class ArtistConfiguration : IEntityTypeConfiguration<Artist>
         builder.Property(a => a.IsFormallyIncorporated)
             .IsRequired(false);
 
+        builder.Property(a => a.IsPublished)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(a => a.IsModerationBlocked)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(a => a.Path)
             .IsRequired()
             .HasMaxLength(255);
@@ -70,15 +78,6 @@ public class ArtistConfiguration : IEntityTypeConfiguration<Artist>
             .WithMany()
             .HasForeignKey(a => a.ProfilePicID)
             .OnDelete(DeleteBehavior.SetNull);
-
-        builder.Property(a => a.PrimaryContactID)
-            .IsRequired(false);
-
-        builder.HasOne(a => a.PrimaryContact)
-            .WithMany()
-            .HasForeignKey(a => a.PrimaryContactID)
-            .OnDelete(DeleteBehavior.Restrict)
-            .IsRequired(false);
 
         builder.Property(a => a.GalleryID)
             .IsRequired(false);

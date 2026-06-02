@@ -37,6 +37,7 @@ public class ArtistController : ControllerBase
     public async Task<ActionResult<IEnumerable<Artist>>> Get()
     {
         var artists = await _context.Set<Artist>()
+            .Where(a => a.IsPublished && !a.IsModerationBlocked)
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
             .Include(a => a.Listings)
@@ -47,13 +48,35 @@ public class ArtistController : ControllerBase
         // Limit each artist's listings to top 3 for gallery preview
         foreach (var artist in artists)
         {
-            if (artist.Listings != null && artist.Listings.Count > 3)
+            if (artist.Listings != null)
             {
-                artist.Listings = artist.Listings.Take(3).ToList();
+                artist.Listings = artist.Listings
+                    .Where(l => l.IsPublished && !l.IsModerationBlocked)
+                    .Take(3)
+                    .ToList();
             }
         }
 
         return artists;
+    }
+
+    [HttpGet("admin/unpublished")]
+    public async Task<ActionResult<IEnumerable<Artist>>> GetUnpublished([FromQuery] int moderatorUserId)
+    {
+        if (!await IsModeratorAsync(moderatorUserId).ConfigureAwait(false))
+        {
+            return Forbid();
+        }
+
+        var artists = await _context.Set<Artist>()
+            .Where(a => !a.IsPublished || a.IsModerationBlocked)
+            .Include(a => a.ProfilePic)
+            .Include(a => a.CoverPic)
+            .OrderByDescending(a => a.Applied)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        return Ok(artists);
     }
 
     [HttpGet("byID/{id}")]
@@ -98,7 +121,7 @@ public class ArtistController : ControllerBase
             .Include(a => a.Gallery!)
                 .ThenInclude(g => g.GalleryItems)
                 .ThenInclude(gi => gi.Video)
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug && a.IsPublished && !a.IsModerationBlocked)
             .ConfigureAwait(false);
         if (artist == null)
         {
@@ -143,7 +166,7 @@ public class ArtistController : ControllerBase
 
         var artist = await _context.Artists
             .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug && a.IsPublished && !a.IsModerationBlocked)
             .ConfigureAwait(false);
 
         if (artist == null)
@@ -153,7 +176,7 @@ public class ArtistController : ControllerBase
 
         var contactLinks = await _context.Set<Linker_EntityToContact>()
             .AsNoTracking()
-            .Where(l => l.ArtistID == artist.ArtistID && l.MakePublic)
+            .Where(l => l.ArtistID == artist.ArtistID && l.Scope != ContactScope.Private)
             .Include(l => l.Contact)
                 .ThenInclude(c => c.Address)
             .Include(l => l.Contact)
@@ -240,7 +263,7 @@ public class ArtistController : ControllerBase
             .Include(a => a.Contacts)
                 .ThenInclude(c => c.ExternalLink)
             .AsSplitQuery() // This optimizes the query when including multiple collections
-            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug)
+            .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug && a.IsPublished && !a.IsModerationBlocked)
             .ConfigureAwait(false);
 
         if (artist == null)
@@ -254,7 +277,7 @@ public class ArtistController : ControllerBase
         try
         {
             listings = await _context.Set<Listing>()
-                .Where(l => l.ArtistID == artist.ArtistID)
+                .Where(l => l.ArtistID == artist.ArtistID && l.IsPublished && !l.IsModerationBlocked)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
                 .ToListAsync()
@@ -266,7 +289,7 @@ public class ArtistController : ControllerBase
             _logger.LogWarning(ex, "Falling back to listings without ArtCategory include because ParentArtCategoryID is missing in the current DB schema.");
 
             listings = await _context.Set<Listing>()
-                .Where(l => l.ArtistID == artist.ArtistID)
+                .Where(l => l.ArtistID == artist.ArtistID && l.IsPublished && !l.IsModerationBlocked)
                 .Include(l => l.CoverPic)
                 .ToListAsync()
                 .ConfigureAwait(false);
@@ -590,17 +613,29 @@ public class ArtistController : ControllerBase
         if (props.TryGetValue("Path", out p))
         {
             var newPath = GetString(p);
-            if (newPath != null && newPath != existingArtist.Path)
+            if (newPath != null)
             {
-                if (!ValidPathRegex.IsMatch(newPath))
+                var normalizedNewPath = NormalizeSlug(newPath);
+                var normalizedExistingPath = NormalizeSlug(existingArtist.Path);
+
+                if (normalizedNewPath == normalizedExistingPath)
                 {
-                    return BadRequest("Invalid slug format.");
+                    // No-op update (case/whitespace differences only).
                 }
-                if (!await IsPathUniqueAsync(newPath, existingArtist.ArtistID))
+                else
                 {
-                    return BadRequest("Path is not unique.");
+                    if (!ValidPathRegex.IsMatch(normalizedNewPath))
+                    {
+                        return BadRequest("Invalid slug format.");
+                    }
+
+                    if (!await IsPathUniqueAsync(normalizedNewPath, existingArtist.ArtistID))
+                    {
+                        return BadRequest("Path is not unique.");
+                    }
+
+                    existingArtist.Path = normalizedNewPath;
                 }
-                existingArtist.Path = newPath;
             }
         }
         if (props.TryGetValue("SEOTags", out p)) existingArtist.SEOTags = GetString(p) ?? existingArtist.SEOTags;
@@ -702,13 +737,29 @@ public class ArtistController : ControllerBase
         if (props.TryGetValue("Path", out p))
         {
             var newPath = GetString(p);
-            if (newPath != null && newPath != existingArtist.Path)
+            if (newPath != null)
             {
-                if (!await IsPathUniqueAsync(newPath, existingArtist.ArtistID))
+                var normalizedNewPath = NormalizeSlug(newPath);
+                var normalizedExistingPath = NormalizeSlug(existingArtist.Path);
+
+                if (normalizedNewPath == normalizedExistingPath)
                 {
-                    return BadRequest("Path is not unique.");
+                    // No-op update (case/whitespace differences only).
                 }
-                existingArtist.Path = newPath;
+                else
+                {
+                    if (!ValidPathRegex.IsMatch(normalizedNewPath))
+                    {
+                        return BadRequest("Invalid slug format.");
+                    }
+
+                    if (!await IsPathUniqueAsync(normalizedNewPath, existingArtist.ArtistID))
+                    {
+                        return BadRequest("Path is not unique.");
+                    }
+
+                    existingArtist.Path = normalizedNewPath;
+                }
             }
         }
         if (props.TryGetValue("SEOTags", out p)) existingArtist.SEOTags = GetString(p) ?? existingArtist.SEOTags;
@@ -829,6 +880,20 @@ public class ArtistController : ControllerBase
         return string.IsNullOrWhiteSpace(value)
             ? string.Empty
             : value.Trim().ToLowerInvariant();
+    }
+
+    private async Task<bool> IsModeratorAsync(int userId)
+    {
+        if (userId <= 0)
+        {
+            return false;
+        }
+
+        return await _context.Users
+            .Where(u => u.UserID == userId)
+            .Select(u => u.Moderator)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
     }
 
     private async Task<Gallery> EnsureArtistGalleryAsync(Artist artist)

@@ -38,8 +38,6 @@ public class Contact
 
     public int? PhoneContactID { get; set; }
 
-    public bool IsPrivate { get; set; } = false;
-
     [ForeignKey("AddressID")]
     public Address? Address { get; set; }
 

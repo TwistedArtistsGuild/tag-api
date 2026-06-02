@@ -37,10 +37,6 @@ namespace TAGWEBAPI.Models.Configurations.Contact
             builder.Property(c => c.Description)
                 .HasMaxLength(255);
 
-            builder.Property(c => c.IsPrivate)
-                .HasDefaultValue(false)
-                .IsRequired();
-
             builder.HasOne(c => c.Address)
                 .WithOne()
                 .HasForeignKey<Contact>(c => c.AddressID)

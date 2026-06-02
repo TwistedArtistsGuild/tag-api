@@ -138,6 +138,8 @@ namespace TAGWEBAPI.Data
 
         public DbSet<CommentImpression> CommentImpressions { get; set; }
 
+        public DbSet<UnifiedWorkflow> UnifiedWorkflows { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -153,7 +155,7 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.ExternalLinkConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.LinkCategoryConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.AddressConfiguration());
-            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserDetailsConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.PictureConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.VideoConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.GalleryConfiguration());
@@ -181,6 +183,7 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UserContentPreferenceConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.ContactConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerEntityToContactConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UnifiedWorkflowConfiguration());
         }
     }
 }

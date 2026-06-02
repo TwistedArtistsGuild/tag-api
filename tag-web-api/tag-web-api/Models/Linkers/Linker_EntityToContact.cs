@@ -7,6 +7,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 
+public enum ContactScope
+{
+    Private = 0,
+    Primary = 1,
+    Secondary = 2
+}
+
 public class Linker_EntityToContact
 {
     [Key]
@@ -22,7 +29,7 @@ public class Linker_EntityToContact
 
     public int? VendorID { get; set; }
 
-    public bool MakePublic { get; set; } = false;
+    public ContactScope Scope { get; set; } = ContactScope.Secondary;
 
     public int DisplayOrder { get; set; } = 0;
 

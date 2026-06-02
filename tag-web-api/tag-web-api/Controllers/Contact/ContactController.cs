@@ -113,10 +113,16 @@ namespace TAGWEBAPI.Controllers.Contact
         }
 
         // GET: api/contact/artist/4
-        // Returns the entity's primary phone + address merged with all public linked contacts.
+        // Returns linked contacts and entity primary contact details.
+        // includePrivate=false keeps public-safe behavior for profile pages.
         [HttpGet("{context}/{entityId:int}")]
-        public async Task<ActionResult<object>> GetContactsByContext(string context, int entityId)
+        public async Task<ActionResult<object>> GetContactsByContext(string context, int entityId, [FromQuery] bool includePrivate = false)
         {
+            if (string.IsNullOrWhiteSpace(context))
+            {
+                return this.BadRequest($"Invalid context. Valid values: {string.Join(", ", ValidContexts)}.");
+            }
+
             if (!ValidContexts.Contains(context))
             {
                 return this.BadRequest($"Invalid context. Valid values: {string.Join(", ", ValidContexts)}.");
@@ -124,10 +130,15 @@ namespace TAGWEBAPI.Controllers.Contact
 
             var normalizedContext = context.Trim().ToLowerInvariant();
 
-            // Load linked public contacts for this entity
-            var linksQuery = this.context.Set<Linker_EntityToContact>()
-                .AsNoTracking()
-                .Where(l => l.MakePublic);
+            if (!includePrivate && !await this.IsEntityPubliclyVisibleAsync(normalizedContext, entityId).ConfigureAwait(false))
+            {
+                return this.NotFound();
+            }
+
+            // Load linked contacts for this entity.
+            var linksQuery = includePrivate
+                ? this.context.Set<Linker_EntityToContact>().AsNoTracking()
+                : this.PublicEntityLinksQuery();
 
             linksQuery = normalizedContext switch
             {
@@ -153,100 +164,16 @@ namespace TAGWEBAPI.Controllers.Contact
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            // Filter out linker rows where the underlying data is private
-            var publicLinks = linkedContacts.Where(l =>
-                l.Contact != null &&
-                !l.Contact.IsPrivate &&
-                (l.Contact.Address == null || !l.Contact.Address.IsPrivate) &&
-                (l.Contact.PhoneContact == null || !l.Contact.PhoneContact.IsPrivate))
+            // Filter out private rows unless the caller explicitly requests private records.
+            var filteredLinks = linkedContacts.Where(l => l.Contact != null && (includePrivate || l.Scope != ContactScope.Private))
                 .ToList();
 
-            // Load the entity's primary contact
-            Contact? primaryContact = null;
+            var primaryLink = filteredLinks.FirstOrDefault(l => l.Scope == ContactScope.Primary);
+            var primaryContact = primaryLink?.Contact;
             object? primaryPhone = null;
             object? primaryAddress = null;
 
-            if (normalizedContext == "artist")
-            {
-                var artist = await this.context.Set<Artist>()
-                    .AsNoTracking()
-                    .Include(a => a.PrimaryContact)
-                        .ThenInclude(c => c.Address)
-                    .Include(a => a.PrimaryContact)
-                        .ThenInclude(c => c.PhoneContact)
-                            .ThenInclude(pc => pc != null ? pc.PhoneContactLabel : null)
-                    .FirstOrDefaultAsync(a => a.ArtistID == entityId)
-                    .ConfigureAwait(false);
-
-                if (artist == null)
-                {
-                    return this.NotFound();
-                }
-
-                primaryContact = artist.PrimaryContact;
-            }
-            else if (normalizedContext == "user")
-            {
-                var user = await this.context.Set<User>()
-                    .AsNoTracking()
-                    .Include(u => u.PrimaryContact)
-                        .ThenInclude(c => c.Address)
-                    .Include(u => u.PrimaryContact)
-                        .ThenInclude(c => c.PhoneContact)
-                            .ThenInclude(pc => pc != null ? pc.PhoneContactLabel : null)
-                    .FirstOrDefaultAsync(u => u.UserID == entityId)
-                    .ConfigureAwait(false);
-
-                if (user == null)
-                {
-                    return this.NotFound();
-                }
-
-                primaryContact = user.PrimaryContact;
-            }
-            else if (normalizedContext == "venue")
-            {
-                var venue = await this.context.Set<Venue>()
-                    .AsNoTracking()
-                    .Include(v => v.PrimaryContact)
-                        .ThenInclude(c => c.Address)
-                    .Include(v => v.PrimaryContact)
-                        .ThenInclude(c => c.PhoneContact)
-                            .ThenInclude(pc => pc != null ? pc.PhoneContactLabel : null)
-                    .FirstOrDefaultAsync(v => v.VenueID == entityId)
-                    .ConfigureAwait(false);
-
-                if (venue == null)
-                {
-                    return this.NotFound();
-                }
-
-                primaryContact = venue.PrimaryContact;
-            }
-            else if (normalizedContext == "vendor")
-            {
-                var vendor = await this.context.Set<Vendor>()
-                    .AsNoTracking()
-                    .Include(v => v.PrimaryContact)
-                        .ThenInclude(c => c.Address)
-                    .Include(v => v.PrimaryContact)
-                        .ThenInclude(c => c.PhoneContact)
-                            .ThenInclude(pc => pc != null ? pc.PhoneContactLabel : null)
-                    .FirstOrDefaultAsync(v => v.VendorID == entityId)
-                    .ConfigureAwait(false);
-
-                if (vendor == null)
-                {
-                    return this.NotFound();
-                }
-
-                primaryContact = vendor.PrimaryContact;
-            }
-
-            if (primaryContact != null &&
-                !primaryContact.IsPrivate &&
-                (primaryContact.Address == null || !primaryContact.Address.IsPrivate) &&
-                (primaryContact.PhoneContact == null || !primaryContact.PhoneContact.IsPrivate))
+            if (primaryContact != null && (includePrivate || primaryLink?.Scope != ContactScope.Private))
             {
                 if (string.Equals(primaryContact.ContactType, "address", StringComparison.OrdinalIgnoreCase))
                 {
@@ -259,19 +186,42 @@ namespace TAGWEBAPI.Controllers.Contact
                 }
             }
 
+            // A single primary-scoped contact cannot represent both phone and address.
+            // If one type is missing, fall back to the first linked contact of that type.
+            var firstAddressContact = filteredLinks
+                .Select(l => l.Contact)
+                .FirstOrDefault(c => c != null &&
+                    string.Equals(c.ContactType, "address", StringComparison.OrdinalIgnoreCase) &&
+                    c.Address != null);
+            if (primaryAddress == null)
+            {
+                primaryAddress = firstAddressContact?.Address;
+            }
+
+            var firstPhoneContact = filteredLinks
+                .Select(l => l.Contact)
+                .FirstOrDefault(c => c != null &&
+                    string.Equals(c.ContactType, "phone", StringComparison.OrdinalIgnoreCase) &&
+                    c.PhoneContact != null);
+            if (primaryPhone == null)
+            {
+                primaryPhone = firstPhoneContact?.PhoneContact;
+            }
+
             return this.Ok(new
             {
                 context = normalizedContext,
                 entityId,
-                primaryContactId = primaryContact?.ContactID,
+                primaryContactId = primaryLink?.ContactID,
                 primaryPhone,
                 primaryAddress,
-                contacts = publicLinks.Select(l => new
+                contacts = filteredLinks.Select(l => new
                 {
                     linkId = l.Linker_EntityToContactID,
                     contactId = l.ContactID,
                     displayOrder = l.DisplayOrder,
                     contactType = l.Contact.ContactType,
+                    isPrivate = l.Scope == ContactScope.Private,
                     label = l.Contact.ContactLabel != null ? l.Contact.ContactLabel.Label : l.Contact.Label,
                     category = l.Contact.Category,
                     value = l.Contact.ContactType == "phone"
@@ -357,7 +307,7 @@ namespace TAGWEBAPI.Controllers.Contact
                 return this.BadRequest("ContactType must be one of: address, phone, email, url.");
             }
 
-            var isPrivate = request.IsPrivate ?? (normalizedContext == "user");
+            var defaultPrivate = normalizedContext == "user";
 
             Address? address = null;
             PhoneContact? phoneContact = null;
@@ -389,7 +339,6 @@ namespace TAGWEBAPI.Controllers.Contact
                         : request.State ?? "Unknown",
                     OperationHours = request.OperationHours,
                     ContactLabelID = resolvedLabelId,
-                    IsPrivate = isPrivate,
                 };
 
                 this.context.Addresses.Add(address);
@@ -413,7 +362,6 @@ namespace TAGWEBAPI.Controllers.Contact
                     ContactLabelID = resolvedLabelId,
                     PhoneNumber = phoneValue,
                     Description = request.PhoneDescription,
-                    IsPrivate = isPrivate,
                 };
 
                 this.context.PhoneContacts.Add(phoneContact);
@@ -458,16 +406,17 @@ namespace TAGWEBAPI.Controllers.Contact
                 Description = request.Description,
                 AddressID = address?.AddressID,
                 PhoneContactID = phoneContact?.PhoneContactID,
-                IsPrivate = isPrivate,
             };
 
             this.context.Contacts.Add(contact);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            var scope = ResolveContactScope(request.Scope, request.IsPrivate, request.SetAsPrimary, defaultPrivate);
+
             var link = new Linker_EntityToContact
             {
                 ContactID = contact.ContactID,
-                MakePublic = !isPrivate,
+                Scope = scope,
                 DisplayOrder = request.DisplayOrder ?? 0,
             };
 
@@ -490,15 +439,6 @@ namespace TAGWEBAPI.Controllers.Contact
             this.context.Linker_EntityToContacts.Add(link);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
-            if (request.SetAsPrimary == true)
-            {
-                await this.ApplyPrimaryContactAsync(
-                    normalizedContext,
-                    request.EntityID,
-                    contact.ContactID)
-                    .ConfigureAwait(false);
-            }
-
             return this.CreatedAtAction(
                 nameof(this.GetContact),
                 new { id = contact.ContactID },
@@ -508,68 +448,8 @@ namespace TAGWEBAPI.Controllers.Contact
                     entityId = request.EntityID,
                     contactId = contact.ContactID,
                     linkId = link.Linker_EntityToContactID,
-                    primaryUpdated = request.SetAsPrimary == true,
+                    primaryUpdated = scope == ContactScope.Primary,
                 });
-        }
-
-        private async Task ApplyPrimaryContactAsync(string contextName, int entityId, int contactId)
-        {
-            switch (contextName)
-            {
-                case "artist":
-                {
-                    var artist = await this.context.Artists.FirstOrDefaultAsync(a => a.ArtistID == entityId).ConfigureAwait(false);
-                    if (artist == null)
-                    {
-                        return;
-                    }
-
-                    artist.PrimaryContactID = contactId;
-
-                    break;
-                }
-
-                case "user":
-                {
-                    var user = await this.context.Users.FirstOrDefaultAsync(u => u.UserID == entityId).ConfigureAwait(false);
-                    if (user == null)
-                    {
-                        return;
-                    }
-
-                    user.PrimaryContactID = contactId;
-
-                    break;
-                }
-
-                case "vendor":
-                {
-                    var vendor = await this.context.Vendors.FirstOrDefaultAsync(v => v.VendorID == entityId).ConfigureAwait(false);
-                    if (vendor == null)
-                    {
-                        return;
-                    }
-
-                    vendor.PrimaryContactID = contactId;
-
-                    break;
-                }
-
-                case "venue":
-                {
-                    var venue = await this.context.Venues.FirstOrDefaultAsync(v => v.VenueID == entityId).ConfigureAwait(false);
-                    if (venue == null)
-                    {
-                        return;
-                    }
-
-                    venue.PrimaryContactID = contactId;
-
-                    break;
-                }
-            }
-
-            await this.context.SaveChangesAsync().ConfigureAwait(false);
         }
 
         [HttpPut("{id}")]
@@ -680,10 +560,60 @@ namespace TAGWEBAPI.Controllers.Contact
             return this.context.Set<Contact>()
                 .AsNoTracking()
                 .Where(c =>
-                    !c.IsPrivate &&
-                    c.EntityLinks.Any(l => l.MakePublic) &&
-                    (c.Address == null || !c.Address.IsPrivate) &&
-                    (c.PhoneContact == null || !c.PhoneContact.IsPrivate));
+                    c.EntityLinks.Any(l =>
+                        l.Scope != ContactScope.Private &&
+                        ((l.UserID.HasValue &&
+                          l.User != null &&
+                          l.User.IsPublished &&
+                          !l.User.IsModerationBlocked &&
+                          !l.User.HideFromPublic &&
+                          (l.User.UserPrivacy == null || !l.User.UserPrivacy.HideProfileFromPublic)) ||
+                         (l.ArtistID.HasValue && l.Artist != null && l.Artist.IsPublished && !l.Artist.IsModerationBlocked) ||
+                         (l.VenueID.HasValue && l.Venue != null && l.Venue.IsPublished && !l.Venue.IsModerationBlocked) ||
+                         (l.VendorID.HasValue && l.Vendor != null && l.Vendor.IsPublished && !l.Vendor.IsModerationBlocked))));
+        }
+
+        private IQueryable<Linker_EntityToContact> PublicEntityLinksQuery()
+        {
+            return this.context.Set<Linker_EntityToContact>()
+                .AsNoTracking()
+                .Where(l =>
+                    l.Scope != ContactScope.Private &&
+                    ((l.UserID.HasValue &&
+                      l.User != null &&
+                      l.User.IsPublished &&
+                      !l.User.IsModerationBlocked &&
+                      !l.User.HideFromPublic &&
+                      (l.User.UserPrivacy == null || !l.User.UserPrivacy.HideProfileFromPublic)) ||
+                     (l.ArtistID.HasValue && l.Artist != null && l.Artist.IsPublished && !l.Artist.IsModerationBlocked) ||
+                     (l.VenueID.HasValue && l.Venue != null && l.Venue.IsPublished && !l.Venue.IsModerationBlocked) ||
+                     (l.VendorID.HasValue && l.Vendor != null && l.Vendor.IsPublished && !l.Vendor.IsModerationBlocked)));
+        }
+
+        private async Task<bool> IsEntityPubliclyVisibleAsync(string contextName, int entityId)
+        {
+            return contextName switch
+            {
+                "artist" => await this.context.Artists
+                    .AnyAsync(a => a.ArtistID == entityId && a.IsPublished && !a.IsModerationBlocked)
+                    .ConfigureAwait(false),
+                "user" => await this.context.Users
+                    .Include(u => u.UserPrivacy)
+                    .AnyAsync(u =>
+                        u.UserID == entityId &&
+                        u.IsPublished &&
+                        !u.IsModerationBlocked &&
+                        !u.HideFromPublic &&
+                        (u.UserPrivacy == null || !u.UserPrivacy.HideProfileFromPublic))
+                    .ConfigureAwait(false),
+                "venue" => await this.context.Venues
+                    .AnyAsync(v => v.VenueID == entityId && v.IsPublished && !v.IsModerationBlocked)
+                    .ConfigureAwait(false),
+                "vendor" => await this.context.Vendors
+                    .AnyAsync(v => v.VendorID == entityId && v.IsPublished && !v.IsModerationBlocked)
+                    .ConfigureAwait(false),
+                _ => false,
+            };
         }
 
         private bool EntityExists(string contextName, int entityId)
@@ -715,6 +645,28 @@ namespace TAGWEBAPI.Controllers.Contact
                 .AsNoTracking()
                 .FirstOrDefaultAsync(cl => cl.Label.ToLower() == normalized)
                 .ConfigureAwait(false);
+        }
+
+        private static ContactScope ResolveContactScope(string? scope, bool? isPrivate, bool? setAsPrimary, bool defaultPrivate)
+        {
+            if (!string.IsNullOrWhiteSpace(scope))
+            {
+                return scope.Trim().ToLowerInvariant() switch
+                {
+                    "private" => ContactScope.Private,
+                    "primary" => ContactScope.Primary,
+                    "secondary" => ContactScope.Secondary,
+                    _ => defaultPrivate ? ContactScope.Private : ContactScope.Secondary,
+                };
+            }
+
+            if (setAsPrimary == true)
+            {
+                return ContactScope.Primary;
+            }
+
+            var resolvedIsPrivate = isPrivate ?? defaultPrivate;
+            return resolvedIsPrivate ? ContactScope.Private : ContactScope.Secondary;
         }
 
         private static bool TryNormalizeUrl(string? rawValue, out string normalizedUrl)
@@ -793,6 +745,8 @@ namespace TAGWEBAPI.Controllers.Contact
         public string? Description { get; set; }
 
         public bool? IsPrivate { get; set; }
+
+        public string? Scope { get; set; }
 
         public int? DisplayOrder { get; set; }
 
