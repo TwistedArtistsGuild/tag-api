@@ -434,6 +434,7 @@ public class ArtistController : ControllerBase
         {
             Path = normalizedSlug,
             Title = request.Title ?? normalizedSlug,
+            Byline = string.Empty,
             Country = string.IsNullOrWhiteSpace(request.Country) ? null : request.Country.Trim(),
             StateOrProvince = string.IsNullOrWhiteSpace(request.StateOrProvince) ? null : request.StateOrProvince.Trim(),
             BusinessEntityType = string.IsNullOrWhiteSpace(request.BusinessEntityType) ? null : request.BusinessEntityType.Trim(),
