@@ -67,7 +67,6 @@ public class Listing
     [ForeignKey("Artist")]
     public int ArtistID { get; set; }
 
-    [JsonIgnore]
     public Artist Artist { get; set; } = null!;
 
     public int? GalleryID { get; set; }

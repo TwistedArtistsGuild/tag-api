@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace TAGWEBAPI.Models;
 
@@ -67,6 +68,7 @@ public class Artist
 
     public virtual ICollection<LinkerArtistToCategory>? ArtistCategoryLinks { get; set; } = new List<LinkerArtistToCategory>();
 
+    [JsonIgnore]
     public virtual ICollection<Listing>? Listings { get; set; } = new List<Listing>();
 
     public void SetPath(string path)
