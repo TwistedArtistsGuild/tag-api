@@ -402,7 +402,7 @@ public class ArtistController : ControllerBase
         _context.Set<ArtistPermissions>().Add(artistPermissions);
         await _context.SaveChangesAsync().ConfigureAwait(false);
 
-        return CreatedAtAction(nameof(Get), new { id = artist.ArtistID }, artist);
+        return CreatedAtAction(nameof(GetByID), new { id = artist.ArtistID }, artist);
     }
 
     [HttpPost("reserve-slug")]
@@ -461,7 +461,7 @@ public class ArtistController : ControllerBase
                 IncorporatedYear = artist.IncorporatedYear,
             };
 
-            return CreatedAtAction(nameof(Get), new { id = artist.ArtistID }, response);
+            return CreatedAtAction(nameof(GetByID), new { id = artist.ArtistID }, response);
         }
         catch (DbUpdateException ex)
         {
