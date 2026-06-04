@@ -720,3 +720,32 @@ BEGIN
 END $$;
 
 COMMIT;
+
+
+-- Run this patch if the publish/moderation flags were not applied to all tables on first run.
+-- Purpose: safe re-apply of IsPublished and IsModerationBlocked columns on all entity tables.
+-- All statements use ADD COLUMN IF NOT EXISTS so re-running is harmless.
+
+BEGIN;
+
+ALTER TABLE "Listings"
+    ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS "IsModerationBlocked" boolean NOT NULL DEFAULT false;
+
+ALTER TABLE "Artists"
+    ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS "IsModerationBlocked" boolean NOT NULL DEFAULT false;
+
+ALTER TABLE "Users"
+    ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS "IsModerationBlocked" boolean NOT NULL DEFAULT false;
+
+ALTER TABLE "Venues"
+    ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS "IsModerationBlocked" boolean NOT NULL DEFAULT false;
+
+ALTER TABLE "Vendors"
+    ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS "IsModerationBlocked" boolean NOT NULL DEFAULT false;
+
+COMMIT;
