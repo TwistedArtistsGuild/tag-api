@@ -16,8 +16,6 @@ public class PhoneContact
 
     public int? ContactLabelID { get; set; }
 
-    public bool IsPrivate { get; set; } = false;
-
     [StringLength(50)]
     public string? PhoneNumber { get; set; }
 

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace TAGWEBAPI.Models;
 
@@ -19,8 +20,21 @@ public class Artist
 
     public string? Biography { get; set; }
 
-    [Required]
-    public string Byline { get; set; }
+    public string? Country { get; set; }
+
+    public string? StateOrProvince { get; set; }
+
+    public string? BusinessEntityType { get; set; }
+
+    public bool? IsFormallyIncorporated { get; set; }
+
+    public string? Byline { get; set; }
+
+    public int? IncorporatedYear { get; set; }
+
+    public bool IsPublished { get; set; }
+
+    public bool IsModerationBlocked { get; set; }
 
     [Required]
     public string Path { get; set; }
@@ -44,11 +58,6 @@ public class Artist
 
     public virtual Picture? ProfilePic { get; set; }
 
-    public int? PrimaryContactID { get; set; }
-
-    [ForeignKey("PrimaryContactID")]
-    public virtual Contact? PrimaryContact { get; set; }
-
     public int? GalleryID { get; set; }
 
     public virtual Gallery? Gallery { get; set; }
@@ -59,6 +68,7 @@ public class Artist
 
     public virtual ICollection<LinkerArtistToCategory>? ArtistCategoryLinks { get; set; } = new List<LinkerArtistToCategory>();
 
+    [JsonIgnore]
     public virtual ICollection<Listing>? Listings { get; set; } = new List<Listing>();
 
     public void SetPath(string path)

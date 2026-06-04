@@ -36,11 +36,52 @@ namespace TAGWEBAPI.Controllers
             {
                 return NotFound();
             }
-            return await _context.Listings
+            var listings = await _context.Listings
+                .Where(l => l.IsPublished && !l.IsModerationBlocked && l.Artist != null && l.Artist.IsPublished && !l.Artist.IsModerationBlocked)
                 .Include(l => l.Artist)
+                    .ThenInclude(a => a.ProfilePic)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
                 .ToListAsync();
+
+            if (!listings.Any())
+            {
+                _logger.LogWarning("No published listings found; returning non-moderation-blocked listings as fallback.");
+
+                listings = await _context.Listings
+                    .Where(l => !l.IsModerationBlocked && l.Artist != null && !l.Artist.IsModerationBlocked)
+                    .Include(l => l.Artist)
+                        .ThenInclude(a => a.ProfilePic)
+                    .Include(l => l.ArtCategory)
+                    .Include(l => l.CoverPic)
+                    .ToListAsync();
+            }
+
+            await HydrateListingArtistsAsync(listings).ConfigureAwait(false);
+            return listings;
+        }
+
+        [HttpGet("admin/unpublished")]
+        public async Task<ActionResult<IEnumerable<Listing>>> GetUnpublished([FromQuery] int moderatorUserId)
+        {
+            if (!await IsModeratorAsync(moderatorUserId).ConfigureAwait(false))
+            {
+                return Forbid();
+            }
+
+            var listings = await _context.Listings
+                .Where(l => !l.IsPublished || l.IsModerationBlocked)
+                .Include(l => l.Artist)
+                    .ThenInclude(a => a.ProfilePic)
+                .Include(l => l.ArtCategory)
+                .Include(l => l.CoverPic)
+                .OrderByDescending(l => l.Created)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            await HydrateListingArtistsAsync(listings).ConfigureAwait(false);
+
+            return Ok(listings);
         }
 
         // Mirror frontend convention: byID route to fetch listing by numeric ID
@@ -53,6 +94,7 @@ namespace TAGWEBAPI.Controllers
             }
             var listing = await _context.Listings
                 .Include(l => l.Artist)
+                    .ThenInclude(a => a.ProfilePic)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
                 .Include(l => l.Gallery!)
@@ -67,6 +109,8 @@ namespace TAGWEBAPI.Controllers
             {
                 return NotFound();
             }
+
+            await HydrateListingArtistAsync(listing).ConfigureAwait(false);
 
             return listing;
         }
@@ -84,6 +128,7 @@ namespace TAGWEBAPI.Controllers
             
             var listing = await _context.Listings
                 .Include(l => l.Artist)
+                    .ThenInclude(a => a.ProfilePic)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
                 .Include(l => l.Gallery!)
@@ -94,12 +139,16 @@ namespace TAGWEBAPI.Controllers
                     .ThenInclude(gi => gi.Video)
                 .FirstOrDefaultAsync(l =>
                     l.Artist.Path.ToLower() == normalizedArtistPath &&
-                    l.Path.ToLower() == normalizedListingPath);
+                        l.Path.ToLower() == normalizedListingPath &&
+                        l.IsPublished && !l.IsModerationBlocked &&
+                        l.Artist.IsPublished && !l.Artist.IsModerationBlocked);
 
             if (listing == null)
             {
                 return NotFound("Listing not found for the specified artist and path.");
             }
+
+            await HydrateListingArtistAsync(listing).ConfigureAwait(false);
 
             return listing;
         }
@@ -115,16 +164,30 @@ namespace TAGWEBAPI.Controllers
             // 2. Use .Where() and .ToListAsync()
             var listings = await _context.Listings
                 .Include(l => l.Artist)
+                    .ThenInclude(a => a.ProfilePic)
                 .Include(l => l.ArtCategory)
                 .Include(l => l.CoverPic)
-                .Where(l => l.Artist.ArtistID == id)
+                .Where(l => l.Artist.ArtistID == id && l.IsPublished && !l.IsModerationBlocked && l.Artist.IsPublished && !l.Artist.IsModerationBlocked)
                 .ToListAsync();
+
+            if (listings == null || !listings.Any())
+            {
+                listings = await _context.Listings
+                    .Include(l => l.Artist)
+                        .ThenInclude(a => a.ProfilePic)
+                    .Include(l => l.ArtCategory)
+                    .Include(l => l.CoverPic)
+                    .Where(l => l.Artist.ArtistID == id && !l.IsModerationBlocked && !l.Artist.IsModerationBlocked)
+                    .ToListAsync();
+            }
 
             // 3. Check if the list is empty
             if (listings == null || !listings.Any())
             {
                 return NotFound("No listings found for the specified artist.");
             }
+
+            await HydrateListingArtistsAsync(listings).ConfigureAwait(false);
 
             return Ok(listings);
         }
@@ -364,6 +427,67 @@ namespace TAGWEBAPI.Controllers
             return string.IsNullOrWhiteSpace(value)
                 ? string.Empty
                 : value.Trim().ToLowerInvariant();
+        }
+
+        private async Task<bool> IsModeratorAsync(int userId)
+        {
+            if (userId <= 0)
+            {
+                return false;
+            }
+
+            return await _context.Users
+                .Where(u => u.UserID == userId)
+                .Select(u => u.Moderator)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+        }
+
+        private async Task HydrateListingArtistsAsync(IEnumerable<Listing> listings)
+        {
+            var listingList = listings?.ToList() ?? new List<Listing>();
+            if (listingList.Count == 0)
+            {
+                return;
+            }
+
+            var missingArtistIds = listingList
+                .Where(l => l.Artist == null && l.ArtistID > 0)
+                .Select(l => l.ArtistID)
+                .Distinct()
+                .ToList();
+
+            if (missingArtistIds.Count == 0)
+            {
+                return;
+            }
+
+            var artistsById = await _context.Artists
+                .Where(a => missingArtistIds.Contains(a.ArtistID))
+                .Include(a => a.ProfilePic)
+                .ToDictionaryAsync(a => a.ArtistID)
+                .ConfigureAwait(false);
+
+            foreach (var listing in listingList)
+            {
+                if (listing.Artist == null && artistsById.TryGetValue(listing.ArtistID, out var artist))
+                {
+                    listing.Artist = artist;
+                }
+            }
+        }
+
+        private async Task HydrateListingArtistAsync(Listing listing)
+        {
+            if (listing == null || listing.Artist != null || listing.ArtistID <= 0)
+            {
+                return;
+            }
+
+            listing.Artist = await _context.Artists
+                .Include(a => a.ProfilePic)
+                .FirstOrDefaultAsync(a => a.ArtistID == listing.ArtistID)
+                .ConfigureAwait(false);
         }
 
         private async Task<Gallery> EnsureListingGalleryAsync(Listing listing)

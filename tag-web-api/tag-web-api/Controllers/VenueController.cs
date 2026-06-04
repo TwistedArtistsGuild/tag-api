@@ -4,6 +4,8 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using System.Globalization;
+    using System.Text.RegularExpressions;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -13,6 +15,7 @@ namespace TAGWEBAPI.Controllers
     [ApiController]
     public class VenueController : ControllerBase
     {
+        private static readonly Regex ValidSlugRegex = new Regex(@"^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$", RegexOptions.Compiled);
         private readonly TAGDBContext context;
 
         public VenueController(TAGDBContext context)
@@ -23,13 +26,112 @@ namespace TAGWEBAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Venue>>> GetVenues()
         {
-            return await this.context.Set<Venue>().ToListAsync().ConfigureAwait(false);
+            var venues = await this.context.Set<Venue>()
+                .Where(v => v.IsPublished && !v.IsModerationBlocked)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return this.Ok(venues);
+        }
+
+        [HttpGet("admin/unpublished")]
+        public async Task<ActionResult<IEnumerable<Venue>>> GetUnpublishedVenues([FromQuery] int moderatorUserId)
+        {
+            if (!await this.IsModeratorAsync(moderatorUserId).ConfigureAwait(false))
+            {
+                return this.Forbid();
+            }
+
+            var venues = await this.context.Set<Venue>()
+                .Where(v => !v.IsPublished || v.IsModerationBlocked)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return this.Ok(venues);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Venue>> GetVenue(int id)
         {
             var venue = await this.context.Set<Venue>().FindAsync(id).ConfigureAwait(false);
+
+            if (venue == null || !venue.IsPublished || venue.IsModerationBlocked)
+            {
+                return this.NotFound();
+            }
+
+            return venue;
+        }
+
+        [HttpGet("byID/{id}")]
+        public async Task<ActionResult<Venue>> GetVenueById(int id)
+        {
+            var venue = await this.context.Set<Venue>().FindAsync(id).ConfigureAwait(false);
+            if (venue == null)
+            {
+                return this.NotFound();
+            }
+
+            return venue;
+        }
+
+        [HttpGet("check-slug/{slug}")]
+        public async Task<ActionResult<object>> CheckVenueSlug(string slug, [FromQuery] int? excludeId = null)
+        {
+            var normalizedSlug = NormalizeSlug(slug);
+            if (!ValidSlugRegex.IsMatch(normalizedSlug))
+            {
+                return this.BadRequest(new { available = false, message = "Invalid slug format." });
+            }
+
+            var isUnique = await this.IsVenueSlugUniqueAsync(normalizedSlug, excludeId).ConfigureAwait(false);
+            if (!isUnique)
+            {
+                return this.Conflict(new { available = false, message = "Slug is already in use." });
+            }
+
+            return this.Ok(new { available = true, slug = normalizedSlug });
+        }
+
+        [HttpGet("by-slug/{slug}")]
+        public async Task<ActionResult<Venue>> GetVenueBySlug(string slug)
+        {
+            var normalizedSlug = NormalizeSlug(slug);
+            if (!ValidSlugRegex.IsMatch(normalizedSlug))
+            {
+                return this.BadRequest(new { message = "Invalid slug format." });
+            }
+
+            var venueCandidates = await this.context.Set<Venue>()
+                .AsNoTracking()
+                .Select(v => new
+                {
+                    v.VenueID,
+                    v.Name,
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            var matchedVenueId = venueCandidates
+                .Where(v => !string.IsNullOrWhiteSpace(v.Name))
+                .Select(v => new
+                {
+                    v.VenueID,
+                    Slug = ToSlug(v.Name),
+                })
+                .Where(v => v.Slug == normalizedSlug)
+                .Select(v => (int?)v.VenueID)
+                .FirstOrDefault();
+
+            if (!matchedVenueId.HasValue)
+            {
+                return this.NotFound();
+            }
+
+            var venue = await this.context.Set<Venue>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.VenueID == matchedVenueId.Value)
+                .ConfigureAwait(false);
 
             if (venue == null)
             {
@@ -39,9 +141,138 @@ namespace TAGWEBAPI.Controllers
             return venue;
         }
 
+        [HttpPost("reserve-slug")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<VenueSlugReservationResponse>> ReserveVenueSlug([FromBody] VenueSlugReservationRequest request)
+        {
+            if (request == null)
+            {
+                return this.BadRequest();
+            }
+
+            if (!this.ModelState.IsValid)
+            {
+                return this.BadRequest(this.ModelState);
+            }
+
+            var normalizedSlug = NormalizeSlug(request.Slug);
+            if (!ValidSlugRegex.IsMatch(normalizedSlug))
+            {
+                return this.BadRequest("Invalid slug format.");
+            }
+
+            if (!await this.IsVenueSlugUniqueAsync(normalizedSlug).ConfigureAwait(false))
+            {
+                return this.Conflict("Slug is already in use.");
+            }
+
+            var displayTitle = NormalizeDisplayName(request.Title, normalizedSlug);
+
+            var address = new Address
+            {
+                AddressLine1 = "Pending venue address",
+                City = "Pending",
+                State = string.Empty,
+                Country = "Pending",
+                ZipCode = string.Empty,
+                Region = string.Empty,
+                OperationHours = string.Empty,
+            };
+
+            var link = new ExternalLink
+            {
+                URL = "https://example.com",
+                Description = "Pending venue website",
+                Handle = normalizedSlug,
+            };
+
+            var phone = new PhoneContact
+            {
+                PhoneNumber = "000-000-0000",
+                Description = "Pending venue phone",
+            };
+
+            this.context.Set<Address>().Add(address);
+            this.context.Set<ExternalLink>().Add(link);
+            this.context.Set<PhoneContact>().Add(phone);
+            await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            var venue = new Venue
+            {
+                Name = displayTitle,
+                AddressID = address.AddressID,
+                ExternalLinkID = link.ExternalLinkID,
+                PhoneContactID = phone.PhoneContactID,
+                IsPublished = false,
+                IsModerationBlocked = false,
+            };
+
+            this.context.Set<Venue>().Add(venue);
+            await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            return this.CreatedAtAction(nameof(this.GetVenueById), new { id = venue.VenueID }, new VenueSlugReservationResponse
+            {
+                VenueID = venue.VenueID,
+                Slug = ToSlug(venue.Name),
+                Title = venue.Name,
+            });
+        }
+
+        [HttpPatch("{id}/update-slug")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<VenueSlugReservationResponse>> UpdateVenueSlug(int id, [FromBody] VenueSlugUpdateRequest request)
+        {
+            if (request == null)
+            {
+                return this.BadRequest();
+            }
+
+            if (!this.ModelState.IsValid)
+            {
+                return this.BadRequest(this.ModelState);
+            }
+
+            var venue = await this.context.Set<Venue>().FindAsync(id).ConfigureAwait(false);
+            if (venue == null)
+            {
+                return this.NotFound(new { message = $"Venue with ID {id} not found" });
+            }
+
+            var normalizedSlug = NormalizeSlug(request.Slug);
+            if (!ValidSlugRegex.IsMatch(normalizedSlug))
+            {
+                return this.BadRequest("Invalid slug format.");
+            }
+
+            if (!await this.IsVenueSlugUniqueAsync(normalizedSlug, id).ConfigureAwait(false))
+            {
+                return this.Conflict("Slug is already in use.");
+            }
+
+            venue.Name = NormalizeDisplayName(request.Title, normalizedSlug);
+            await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            return this.Ok(new VenueSlugReservationResponse
+            {
+                VenueID = venue.VenueID,
+                Slug = ToSlug(venue.Name),
+                Title = venue.Name,
+            });
+        }
+
         [HttpPost]
         public async Task<ActionResult<Venue>> PostVenue(Venue venue)
         {
+            if (venue == null)
+            {
+                return this.BadRequest();
+            }
+
             this.context.Set<Venue>().Add(venue);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
@@ -51,6 +282,11 @@ namespace TAGWEBAPI.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutVenue(int id, Venue venue)
         {
+            if (venue == null)
+            {
+                return this.BadRequest();
+            }
+
             if (id != venue.VenueID)
             {
                 return this.BadRequest();
@@ -95,6 +331,60 @@ namespace TAGWEBAPI.Controllers
         private bool VenueExists(int id)
         {
             return this.context.Set<Venue>().Any(e => e.VenueID == id);
+        }
+
+        private static string NormalizeSlug(string slug)
+        {
+            return string.IsNullOrWhiteSpace(slug) ? string.Empty : slug.Trim().ToLower(CultureInfo.InvariantCulture);
+        }
+
+        private static string NormalizeDisplayName(string? title, string fallbackSlug)
+        {
+            var trimmedTitle = string.IsNullOrWhiteSpace(title) ? string.Empty : title.Trim();
+            return string.IsNullOrWhiteSpace(trimmedTitle) ? fallbackSlug : trimmedTitle;
+        }
+
+        private static string ToSlug(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var sanitized = Regex.Replace(value.Trim().ToLower(CultureInfo.InvariantCulture), @"[^a-z0-9\s-]", string.Empty);
+            sanitized = Regex.Replace(sanitized, @"\s+", "-");
+            sanitized = Regex.Replace(sanitized, @"-+", "-");
+            return sanitized.Trim('-');
+        }
+
+        private async Task<bool> IsVenueSlugUniqueAsync(string slug, int? excludeVenueId = null)
+        {
+            var query = this.context.Set<Venue>().AsQueryable();
+            if (excludeVenueId.HasValue)
+            {
+                query = query.Where(v => v.VenueID != excludeVenueId.Value);
+            }
+
+            var existingNames = await query
+                .Select(v => v.Name)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return existingNames.All(name => ToSlug(name) != slug);
+        }
+
+        private async Task<bool> IsModeratorAsync(int userId)
+        {
+            if (userId <= 0)
+            {
+                return false;
+            }
+
+            return await this.context.Users
+                .Where(u => u.UserID == userId)
+                .Select(u => u.Moderator)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
         }
     }
 }

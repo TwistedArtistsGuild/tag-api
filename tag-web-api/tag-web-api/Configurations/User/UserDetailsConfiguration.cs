@@ -1,4 +1,4 @@
-// <copyright file="UserConfiguration.cs" company="Twisted Artists Guild">
+// <copyright file="UserDetailsConfiguration.cs" company="Twisted Artists Guild">
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
@@ -8,7 +8,7 @@ using System;
 
 namespace TAGWEBAPI.Models.Configurations;
 
-public class UserConfiguration : IEntityTypeConfiguration<User>
+public class UserDetailsConfiguration : IEntityTypeConfiguration<User>
 {
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<User> builder)
@@ -53,6 +53,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Gender)
             .HasMaxLength(255);
 
+        builder.Property(u => u.IsPublished)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(u => u.IsModerationBlocked)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         // Use CURRENT_TIMESTAMP which will use the server's timezone
         builder.Property(u => u.Joined)
             .IsRequired()
@@ -64,9 +72,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(t => t.UserID)
             .OnDelete(DeleteBehavior.SetNull);
 
-        builder.Property(u => u.PrimaryContactID)
-            .IsRequired(false);
-
         builder.Property(u => u.GalleryID)
             .IsRequired(false);
 
@@ -74,12 +79,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired(false);
 
         builder.Property(u => u.ProfilePicID)
-            .IsRequired(false);
-
-        builder.HasOne(u => u.PrimaryContact)
-            .WithMany()
-            .HasForeignKey(u => u.PrimaryContactID)
-            .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
 
         builder.HasOne(u => u.Gallery)

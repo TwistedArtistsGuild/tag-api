@@ -22,10 +22,6 @@ namespace TAGWEBAPI.Models.Configurations.Contact
             builder.Property(pc => pc.ContactLabelID)
                 .IsRequired(false);
 
-            builder.Property(pc => pc.IsPrivate)
-                .HasDefaultValue(false)
-                .IsRequired();
-
             builder.Property(pc => pc.PhoneNumber)
                 .IsRequired();
 

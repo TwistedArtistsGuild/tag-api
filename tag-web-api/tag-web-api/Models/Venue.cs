@@ -23,12 +23,12 @@ public class Venue
     [ForeignKey("PhoneContact")]
     public int PhoneContactID { get; set; }
 
-    [ForeignKey("Contact")]
-    public int? PrimaryContactID { get; set; }
+    public bool IsPublished { get; set; }
+
+    public bool IsModerationBlocked { get; set; }
 
     // Navigation properties
     public virtual Address Address { get; set; }
     public virtual ExternalLink ExternalLink { get; set; }
     public virtual PhoneContact PhoneContact { get; set; }
-    public virtual Contact? PrimaryContact { get; set; }
 }

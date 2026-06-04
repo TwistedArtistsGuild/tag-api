@@ -14,8 +14,8 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
     {
         builder.HasKey(l => l.Linker_EntityToContactID);
 
-        builder.Property(l => l.MakePublic)
-            .HasDefaultValue(false);
+        builder.Property(l => l.Scope)
+            .HasDefaultValue(ContactScope.Secondary);
 
         builder.Property(l => l.DisplayOrder)
             .HasDefaultValue(0);
@@ -71,7 +71,7 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
                 Linker_EntityToContactID = 1001,
                 ArtistID = 4,
                 ContactID = 1001,
-                MakePublic = true,
+                Scope = ContactScope.Primary,
                 DisplayOrder = 1,
             },
             new Linker_EntityToContact
@@ -79,7 +79,7 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
                 Linker_EntityToContactID = 1002,
                 ArtistID = 4,
                 ContactID = 1002,
-                MakePublic = true,
+                Scope = ContactScope.Secondary,
                 DisplayOrder = 2,
             },
             new Linker_EntityToContact
@@ -87,7 +87,7 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
                 Linker_EntityToContactID = 1003,
                 ArtistID = 4,
                 ContactID = 1003,
-                MakePublic = true,
+                Scope = ContactScope.Secondary,
                 DisplayOrder = 3,
             },
             new Linker_EntityToContact
@@ -95,7 +95,7 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
                 Linker_EntityToContactID = 1004,
                 ArtistID = 4,
                 ContactID = 1004,
-                MakePublic = true,
+                Scope = ContactScope.Secondary,
                 DisplayOrder = 4,
             });
     }

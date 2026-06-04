@@ -41,8 +41,6 @@ public class Address
     [StringLength(1000)]
     public string? OperationHours { get; set; }
 
-    public bool IsPrivate { get; set; } = false;
-
     public int? ContactLabelID { get; set; }
 
     [ForeignKey("ContactLabelID")]

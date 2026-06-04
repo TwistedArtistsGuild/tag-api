@@ -51,6 +51,10 @@ public class Listing
 
     public DateTime? Work_CompletionDate { get; set; }
 
+    public bool IsPublished { get; set; }
+
+    public bool IsModerationBlocked { get; set; }
+
     [Required]
     public string Path { get; set; } = string.Empty;
 
@@ -63,7 +67,6 @@ public class Listing
     [ForeignKey("Artist")]
     public int ArtistID { get; set; }
 
-    [JsonIgnore]
     public Artist Artist { get; set; } = null!;
 
     public int? GalleryID { get; set; }

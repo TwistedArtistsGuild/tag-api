@@ -68,7 +68,7 @@ namespace TAGWEBAPI.Controllers.Contact
                 VenueID = request.VenueID,
                 VendorID = request.VendorID,
                 DisplayOrder = request.DisplayOrder,
-                MakePublic = !contact.IsPrivate,
+                Scope = ContactScope.Secondary,
             };
 
             var validationError = ValidateEntityTarget(link);
@@ -107,7 +107,10 @@ namespace TAGWEBAPI.Controllers.Contact
                 return this.BadRequest($"Contact {link.ContactID} was not found.");
             }
 
-            link.MakePublic = !contact.IsPrivate;
+            if (!Enum.IsDefined(typeof(ContactScope), link.Scope))
+            {
+                link.Scope = ContactScope.Secondary;
+            }
 
             this.context.Entry(link).State = EntityState.Modified;
 

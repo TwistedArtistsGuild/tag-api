@@ -59,7 +59,8 @@ namespace TAGWEBAPI.Models.Configurations
             builder.Property(p => p.NormalizedURL)
                 .HasColumnType("text");
 
-            builder.HasIndex(p => p.NormalizedURL);
+            builder.HasIndex(p => p.NormalizedURL)
+                .IsUnique();
 
             builder.Property(p => p.Byline)
                 .HasMaxLength(2000);
