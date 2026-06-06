@@ -10,6 +10,8 @@ public sealed class ModernTreasuryOptions
 
     public string BaseUrl { get; set; } = "https://app.moderntreasury.com";
 
+    public string OrganizationId { get; set; } = string.Empty;
+
     public string ApiKey { get; set; } = string.Empty;
 
     public string LedgerId { get; set; } = string.Empty;

@@ -7,6 +7,20 @@ namespace TAGWEBAPI.Integrations.ModernTreasury;
 
 public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
 {
+    private static readonly HashSet<string> AllowedSellerTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "artist",
+        "vendor",
+    };
+
+    private static readonly HashSet<string> AllowedPrototypeActions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "purchase",
+        "register_user",
+        "register_artist",
+        "register_vendor",
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -45,6 +59,11 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
             Payload = payload,
         };
 
+        if (IsRegistrationAction(request.PrototypeAction) && !response.DryRun)
+        {
+            throw new InvalidOperationException("Registration prototype actions are dry-run only.");
+        }
+
         if (response.DryRun)
         {
             this.logger.LogInformation("Modern Treasury dry-run enabled. Ledger payload built for StripeEventId {StripeEventId}", request.StripeEventId);
@@ -56,13 +75,18 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
             throw new InvalidOperationException("ModernTreasury.ApiKey is required when dry-run is disabled.");
         }
 
+        if (string.IsNullOrWhiteSpace(this.options.OrganizationId))
+        {
+            throw new InvalidOperationException("ModernTreasury.OrganizationId is required when dry-run is disabled.");
+        }
+
         if (string.IsNullOrWhiteSpace(this.options.BaseUrl))
         {
             throw new InvalidOperationException("ModernTreasury.BaseUrl is required when dry-run is disabled.");
         }
 
         this.httpClient.BaseAddress = new Uri(this.options.BaseUrl);
-        this.httpClient.DefaultRequestHeaders.Authorization = BuildBasicAuth(this.options.ApiKey);
+        this.httpClient.DefaultRequestHeaders.Authorization = BuildBasicAuth(this.options.OrganizationId, this.options.ApiKey);
 
         using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
         {
@@ -99,18 +123,24 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
 
     private static void ValidateRequest(StripeLedgerPrototypeRequest request)
     {
-        if (request.GrossAmount <= 0)
+        if (!AllowedPrototypeActions.Contains(request.PrototypeAction))
         {
-            throw new ArgumentException("GrossAmount must be greater than 0.");
+            throw new ArgumentException("PrototypeAction must be one of: purchase, register_user, register_artist, register_vendor.");
         }
 
-        if (!request.SellerType.Equals("artist", StringComparison.OrdinalIgnoreCase)
-            && !request.SellerType.Equals("vendor", StringComparison.OrdinalIgnoreCase))
+        if (!AllowedSellerTypes.Contains(request.SellerType))
         {
             throw new ArgumentException("SellerType must be either 'artist' or 'vendor'.");
         }
 
-        if (request.PlatformFeeAmount + request.ShippingRevenueAmount + request.TaxesWithheldAmount > request.GrossAmount)
+        if (request.PrototypeAction.Equals("purchase", StringComparison.OrdinalIgnoreCase)
+            && request.GrossAmount <= 0)
+        {
+            throw new ArgumentException("GrossAmount must be greater than 0 for purchase flows.");
+        }
+
+        if (request.PrototypeAction.Equals("purchase", StringComparison.OrdinalIgnoreCase)
+            && request.PlatformFeeAmount + request.ShippingRevenueAmount + request.TaxesWithheldAmount > request.GrossAmount)
         {
             throw new ArgumentException("PlatformFeeAmount + ShippingRevenueAmount + TaxesWithheldAmount cannot exceed GrossAmount.");
         }
@@ -118,6 +148,11 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
 
     private static List<LedgerLine> BuildLines(StripeLedgerPrototypeRequest request)
     {
+        if (IsRegistrationAction(request.PrototypeAction))
+        {
+            return new List<LedgerLine>();
+        }
+
         var lines = new List<LedgerLine>();
 
         var payableAccount = request.SellerType.Equals("vendor", StringComparison.OrdinalIgnoreCase)
@@ -252,6 +287,11 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
             StripeFeeAmount = ToMajorUnits(request.StripeFeeCents),
             ShippingCostAmount = ToMajorUnits(request.ShippingCostCents),
             SellerType = request.SellerType,
+            PrototypeAction = request.PrototypeAction,
+            EcosystemScenario = request.EcosystemScenario,
+            BuyerUserId = request.BuyerUserId,
+            SellerAccountId = request.SellerAccountId,
+            VendorAccountId = request.VendorAccountId,
             Currency = request.Currency,
             Description = request.Description ?? $"Stripe event {request.StripeEventType}",
             DryRun = request.DryRun,
@@ -301,6 +341,11 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
                 ["stripe_payment_intent_id"] = request.StripePaymentIntentId ?? string.Empty,
                 ["order_id"] = request.OrderId ?? string.Empty,
                 ["seller_type"] = request.SellerType.ToLowerInvariant(),
+                ["prototype_action"] = request.PrototypeAction.ToLowerInvariant(),
+                ["ecosystem_scenario"] = request.EcosystemScenario,
+                ["buyer_user_id"] = request.BuyerUserId,
+                ["seller_account_id"] = request.SellerAccountId,
+                ["vendor_account_id"] = request.VendorAccountId,
                 ["currency"] = request.Currency.ToUpperInvariant(),
             },
             ledger_entries = lines.Select(line => new
@@ -334,9 +379,16 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
         return decimal.ToInt64(decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero));
     }
 
-    private static AuthenticationHeaderValue BuildBasicAuth(string apiKey)
+    private static AuthenticationHeaderValue BuildBasicAuth(string organizationId, string apiKey)
     {
-        var credentialBytes = Encoding.ASCII.GetBytes($"{apiKey}:");
+        var credentialBytes = Encoding.ASCII.GetBytes($"{organizationId}:{apiKey}");
         return new AuthenticationHeaderValue("Basic", Convert.ToBase64String(credentialBytes));
+    }
+
+    private static bool IsRegistrationAction(string prototypeAction)
+    {
+        return prototypeAction.Equals("register_user", StringComparison.OrdinalIgnoreCase)
+            || prototypeAction.Equals("register_artist", StringComparison.OrdinalIgnoreCase)
+            || prototypeAction.Equals("register_vendor", StringComparison.OrdinalIgnoreCase);
     }
 }

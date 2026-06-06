@@ -66,37 +66,6 @@ Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
 builder.Services.Configure<ModernTreasuryOptions>(
     builder.Configuration.GetSection(ModernTreasuryOptions.SectionName));
 
-builder.Services.PostConfigure<ModernTreasuryOptions>(options =>
-{
-    // Prefer user-secrets/config values, but let environment variables override when present.
-    options.ApiKey = Environment.GetEnvironmentVariable("MODERN_TREASURY_API_KEY") ?? options.ApiKey;
-    options.LedgerId = Environment.GetEnvironmentVariable("MODERN_TREASURY_LEDGER_ID") ?? options.LedgerId;
-    options.BaseUrl = Environment.GetEnvironmentVariable("MODERN_TREASURY_BASE_URL")
-        ?? options.BaseUrl
-        ?? "https://app.moderntreasury.com";
-
-    options.AccountMappings ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-    SetMappingOverride(options.AccountMappings, "1020", "MODERN_TREASURY_ACCOUNT_1020");
-    SetMappingOverride(options.AccountMappings, "2000", "MODERN_TREASURY_ACCOUNT_2000");
-    SetMappingOverride(options.AccountMappings, "2460", "MODERN_TREASURY_ACCOUNT_2460");
-    SetMappingOverride(options.AccountMappings, "2470", "MODERN_TREASURY_ACCOUNT_2470");
-    SetMappingOverride(options.AccountMappings, "2475", "MODERN_TREASURY_ACCOUNT_2475");
-    SetMappingOverride(options.AccountMappings, "4000", "MODERN_TREASURY_ACCOUNT_4000");
-    SetMappingOverride(options.AccountMappings, "4100", "MODERN_TREASURY_ACCOUNT_4100");
-    SetMappingOverride(options.AccountMappings, "5030", "MODERN_TREASURY_ACCOUNT_5030");
-    SetMappingOverride(options.AccountMappings, "5100", "MODERN_TREASURY_ACCOUNT_5100");
-});
-
-static void SetMappingOverride(IDictionary<string, string> accountMappings, string accountNumber, string envVarName)
-{
-    var envValue = Environment.GetEnvironmentVariable(envVarName);
-    if (!string.IsNullOrWhiteSpace(envValue))
-    {
-        accountMappings[accountNumber] = envValue;
-    }
-}
-
 builder.Services.AddHttpClient<IModernTreasuryLedgerService, ModernTreasuryLedgerService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);

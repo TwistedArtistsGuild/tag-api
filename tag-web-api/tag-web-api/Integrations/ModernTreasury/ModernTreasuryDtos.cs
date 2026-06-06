@@ -33,6 +33,17 @@ public sealed class StripeLedgerPrototypeRequest
     public string SellerType { get; set; } = "artist";
 
     [Required]
+    public string PrototypeAction { get; set; } = "purchase";
+
+    public string EcosystemScenario { get; set; } = "user-buys-art";
+
+    public string BuyerUserId { get; set; } = "user_demo_001";
+
+    public string SellerAccountId { get; set; } = "artist_demo_001";
+
+    public string VendorAccountId { get; set; } = "vendor_demo_001";
+
+    [Required]
     public string Currency { get; set; } = "USD";
 
     public string? Description { get; set; }
@@ -74,6 +85,17 @@ public sealed class StripeEventAccountingRequest
 
     [Required]
     public string SellerType { get; set; } = "artist";
+
+    [Required]
+    public string PrototypeAction { get; set; } = "purchase";
+
+    public string EcosystemScenario { get; set; } = "user-buys-art";
+
+    public string BuyerUserId { get; set; } = "user_demo_001";
+
+    public string SellerAccountId { get; set; } = "artist_demo_001";
+
+    public string VendorAccountId { get; set; } = "vendor_demo_001";
 
     [Required]
     public string Currency { get; set; } = "USD";
