@@ -444,15 +444,20 @@ public class WorkflowsController : ControllerBase
         int? artistId = null,
         int? listingId = null)
     {
+        var sanitizedShortText = SanitizeForLog(shortText) ?? string.Empty;
+        var sanitizedTags = SanitizeForLog(tags) ?? string.Empty;
+        var sanitizedLongText = SanitizeForLog(longText);
+        var sanitizedLoggedData = SanitizeForLog(loggedData);
+
         try
         {
             this.context.Set<Log>().Add(new Log
             {
-                ShortText = shortText,
-                Tags = tags,
+                ShortText = sanitizedShortText,
+                Tags = sanitizedTags,
                 Critical = critical,
-                LongText = longText,
-                LoggedData = loggedData,
+                LongText = sanitizedLongText,
+                LoggedData = sanitizedLoggedData,
                 UserID = userId,
                 ArtistID = artistId,
                 ListingID = listingId,
@@ -463,8 +468,15 @@ public class WorkflowsController : ControllerBase
         }
         catch (Exception ex)
         {
-            this.logger.LogError(ex, "Failed to write workflow audit log. Tags: {Tags}", tags);
+            this.logger.LogError(ex, "Failed to write workflow audit log. Tags: {Tags}", sanitizedTags);
         }
+    }
+
+    private static string? SanitizeForLog(string? value)
+    {
+        return value?
+            .Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Replace("\n", string.Empty, StringComparison.Ordinal);
     }
 
     private static string? NormalizeEntityType(string entityType)
