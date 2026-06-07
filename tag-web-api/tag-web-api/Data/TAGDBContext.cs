@@ -32,6 +32,10 @@ namespace TAGWEBAPI.Data
 
         public DbSet<BlogImpression> BlogImpressions { get; set; }
 
+        public DbSet<BugReport> BugReports { get; set; }
+
+        public DbSet<BugReportStaffNote> BugReportStaffNotes { get; set; }
+
         public DbSet<DigitalDeliverySpecs> DigitalDeliverySpecs { get; set; }
 
         public DbSet<Event> Events { get; set; }
@@ -165,6 +169,8 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.MediaCreditConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.ArtistConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.BlogConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.BugReportConfiguration());
+            modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.BugReportStaffNoteConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerUserToArtistConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerArtistToCategoryConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LogConfiguration());

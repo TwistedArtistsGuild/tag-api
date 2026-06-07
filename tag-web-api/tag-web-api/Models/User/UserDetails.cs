@@ -83,4 +83,6 @@ public class User
     /// Gets or sets the collection of Transactions associated with this user
     /// </summary>
     public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+
+    public ICollection<BugReport> BugReports { get; set; } = new List<BugReport>();
 }
