@@ -260,6 +260,14 @@ namespace TAGWEBAPI.Controllers
             try
             {
                 await _context.SaveChangesAsync();
+
+                await TryWriteAuditLogAsync(
+                    shortText: "Listing updated",
+                    tags: "scope=audit;entity=listing;event=record;operation=update;result=success;channel=db",
+                    listingId: existing.ListingID,
+                    artistId: existing.ArtistID,
+                    loggedData: $"listingId={existing.ListingID};artistId={existing.ArtistID};path={existing.Path};title={existing.Title}")
+                    .ConfigureAwait(false);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -304,6 +312,14 @@ namespace TAGWEBAPI.Controllers
             _context.Listings.Add(listing);
             await _context.SaveChangesAsync();
 
+            await TryWriteAuditLogAsync(
+                shortText: "Listing created",
+                tags: "scope=audit;entity=listing;event=record;operation=create;result=success;channel=db",
+                listingId: listing.ListingID,
+                artistId: listing.ArtistID,
+                loggedData: $"listingId={listing.ListingID};artistId={listing.ArtistID};path={listing.Path};title={listing.Title}")
+                .ConfigureAwait(false);
+
             return CreatedAtAction("GetListing", new { id = listing.ListingID }, listing);
         }
 
@@ -323,7 +339,49 @@ namespace TAGWEBAPI.Controllers
             _context.Listings.Remove(listing);
             await _context.SaveChangesAsync();
 
+            await TryWriteAuditLogAsync(
+                shortText: "Listing deleted",
+                tags: "scope=audit;entity=listing;event=record;operation=delete;result=success;channel=db",
+                critical: true,
+                listingId: id,
+                artistId: listing.ArtistID,
+                loggedData: $"listingId={id};artistId={listing.ArtistID};path={listing.Path};title={listing.Title}")
+                .ConfigureAwait(false);
+
             return NoContent();
+        }
+
+        private async Task TryWriteAuditLogAsync(
+            string shortText,
+            string tags,
+            bool critical = false,
+            string? longText = null,
+            string? loggedData = null,
+            int? userId = null,
+            int? artistId = null,
+            int? listingId = null)
+        {
+            try
+            {
+                _context.Set<Log>().Add(new Log
+                {
+                    ShortText = shortText,
+                    Tags = tags,
+                    Critical = critical,
+                    LongText = longText,
+                    LoggedData = loggedData,
+                    UserID = userId,
+                    ArtistID = artistId,
+                    ListingID = listingId,
+                    LogTimestamp = DateTime.UtcNow,
+                });
+
+                await _context.SaveChangesAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to write listing audit log. Tags: {Tags}", tags);
+            }
         }
 
         private bool ListingExists(int id)

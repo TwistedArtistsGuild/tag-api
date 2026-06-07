@@ -402,6 +402,13 @@ public class ArtistController : ControllerBase
         _context.Set<ArtistPermissions>().Add(artistPermissions);
         await _context.SaveChangesAsync().ConfigureAwait(false);
 
+        await TryWriteAuditLogAsync(
+            shortText: "Artist created",
+            tags: "scope=audit;entity=artist;event=profile;operation=create;result=success;channel=db",
+            artistId: artist.ArtistID,
+            loggedData: $"artistId={artist.ArtistID};path={artist.Path};title={artist.Title}")
+            .ConfigureAwait(false);
+
         return CreatedAtAction(nameof(GetByID), new { id = artist.ArtistID }, artist);
     }
 
@@ -448,6 +455,13 @@ public class ArtistController : ControllerBase
         {
             _context.Artists.Add(artist);
             await _context.SaveChangesAsync();
+
+            await TryWriteAuditLogAsync(
+                shortText: "Artist slug reserved",
+                tags: "scope=audit;entity=artist;event=slug;operation=reserve;result=success;channel=db",
+                artistId: artist.ArtistID,
+                loggedData: $"artistId={artist.ArtistID};path={artist.Path}")
+                .ConfigureAwait(false);
 
             // Return the reserved artist object with its ID
             var response = new ArtistSlugReservationResponse
@@ -523,6 +537,13 @@ public class ArtistController : ControllerBase
         try
         {
             await _context.SaveChangesAsync();
+
+            await TryWriteAuditLogAsync(
+                shortText: "Artist slug updated",
+                tags: "scope=audit;entity=artist;event=slug;operation=update;result=success;channel=db",
+                artistId: artist.ArtistID,
+                loggedData: $"artistId={artist.ArtistID};path={artist.Path}")
+                .ConfigureAwait(false);
 
             // Return the updated artist
             var response = new ArtistSlugReservationResponse
@@ -653,6 +674,13 @@ public class ArtistController : ControllerBase
         try
         {
             await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            await TryWriteAuditLogAsync(
+                shortText: "Artist updated",
+                tags: "scope=audit;entity=artist;event=profile;operation=update;result=success;channel=db",
+                artistId: existingArtist.ArtistID,
+                loggedData: $"artistId={existingArtist.ArtistID};path={existingArtist.Path};title={existingArtist.Title}")
+                .ConfigureAwait(false);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -777,6 +805,13 @@ public class ArtistController : ControllerBase
         try
         {
             await _context.SaveChangesAsync().ConfigureAwait(false);
+
+            await TryWriteAuditLogAsync(
+                shortText: "Artist updated",
+                tags: "scope=audit;entity=artist;event=profile;operation=update;result=success;channel=db",
+                artistId: existingArtist.ArtistID,
+                loggedData: $"artistId={existingArtist.ArtistID};path={existingArtist.Path};title={existingArtist.Title}")
+                .ConfigureAwait(false);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -810,7 +845,48 @@ public class ArtistController : ControllerBase
         _context.Artists.Remove(artist);
         await _context.SaveChangesAsync();
 
+        await TryWriteAuditLogAsync(
+            shortText: "Artist deleted",
+            tags: "scope=audit;entity=artist;event=profile;operation=delete;result=success;channel=db",
+            critical: true,
+            artistId: id,
+            loggedData: $"artistId={id};path={artist.Path};title={artist.Title}")
+            .ConfigureAwait(false);
+
         return NoContent();
+    }
+
+    private async Task TryWriteAuditLogAsync(
+        string shortText,
+        string tags,
+        bool critical = false,
+        string? longText = null,
+        string? loggedData = null,
+        int? userId = null,
+        int? artistId = null,
+        int? listingId = null)
+    {
+        try
+        {
+            _context.Set<Log>().Add(new Log
+            {
+                ShortText = shortText,
+                Tags = tags,
+                Critical = critical,
+                LongText = longText,
+                LoggedData = loggedData,
+                UserID = userId,
+                ArtistID = artistId,
+                ListingID = listingId,
+                LogTimestamp = DateTime.UtcNow,
+            });
+
+            await _context.SaveChangesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write artist audit log. Tags: {Tags}", tags);
+        }
     }
 
     private bool ArtistExists(int id)

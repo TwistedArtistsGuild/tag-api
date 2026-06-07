@@ -4,6 +4,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using TAGWEBAPI.Data;
@@ -16,11 +17,13 @@ namespace TAGWEBAPI.Controllers;
 public class UserDetailsController : ControllerBase
 {
     private readonly TAGDBContext context;
+    private readonly ILogger<UserDetailsController> logger;
     private static readonly Regex ValidUsernameRegex = new(@"^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$", RegexOptions.Compiled);
 
-    public UserDetailsController(TAGDBContext context)
+    public UserDetailsController(TAGDBContext context, ILogger<UserDetailsController> logger)
     {
         this.context = context;
+        this.logger = logger;
     }
 
     [HttpGet]
@@ -136,6 +139,13 @@ public class UserDetailsController : ControllerBase
 
         await this.CreateDefaultPreferenceRowsAsync(user.UserID).ConfigureAwait(false);
 
+        await this.TryWriteAuditLogAsync(
+            shortText: "User created",
+            tags: "scope=audit;entity=user;event=profile;operation=create;result=success;channel=db",
+            userId: user.UserID,
+            loggedData: $"userId={user.UserID};username={user.Username}")
+            .ConfigureAwait(false);
+
         return this.CreatedAtAction(nameof(this.Get), new { id = user.UserID }, user);
     }
 
@@ -213,6 +223,13 @@ public class UserDetailsController : ControllerBase
             this.context.Set<User>().Add(user);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
             await this.CreateDefaultPreferenceRowsAsync(user.UserID).ConfigureAwait(false);
+
+            await this.TryWriteAuditLogAsync(
+                shortText: "User reserved by username",
+                tags: "scope=audit;entity=user;event=username;operation=reserve;result=success;channel=db",
+                userId: user.UserID,
+                loggedData: $"userId={user.UserID};username={user.Username}")
+                .ConfigureAwait(false);
         }
         else
         {
@@ -220,6 +237,13 @@ public class UserDetailsController : ControllerBase
             user.PreferredName = string.IsNullOrWhiteSpace(request.Title) ? user.PreferredName : request.Title.Trim();
             user.EmailOne = normalizedEmail;
             await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            await this.TryWriteAuditLogAsync(
+                shortText: "User username reserved (existing user updated)",
+                tags: "scope=audit;entity=user;event=username;operation=reserve;result=success;channel=db",
+                userId: user.UserID,
+                loggedData: $"userId={user.UserID};username={user.Username}")
+                .ConfigureAwait(false);
         }
 
         var response = new UserUsernameReservationResponse
@@ -279,6 +303,13 @@ public class UserDetailsController : ControllerBase
 
         await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+        await this.TryWriteAuditLogAsync(
+            shortText: "User username updated",
+            tags: "scope=audit;entity=user;event=username;operation=update;result=success;channel=db",
+            userId: user.UserID,
+            loggedData: $"userId={user.UserID};username={user.Username}")
+            .ConfigureAwait(false);
+
         return this.Ok(new UserUsernameReservationResponse
         {
             UserID = user.UserID,
@@ -336,6 +367,13 @@ public class UserDetailsController : ControllerBase
         try
         {
             await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            await this.TryWriteAuditLogAsync(
+                shortText: "User updated",
+                tags: "scope=audit;entity=user;event=profile;operation=update;result=success;channel=db",
+                userId: user.UserID,
+                loggedData: $"userId={user.UserID};username={user.Username};isPublished={user.IsPublished};isModerationBlocked={user.IsModerationBlocked}")
+                .ConfigureAwait(false);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -364,7 +402,48 @@ public class UserDetailsController : ControllerBase
         this.context.Set<User>().Remove(user);
         await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+        await this.TryWriteAuditLogAsync(
+            shortText: "User deleted",
+            tags: "scope=audit;entity=user;event=profile;operation=delete;result=success;channel=db",
+            critical: true,
+            userId: id,
+            loggedData: $"userId={id};username={user.Username}")
+            .ConfigureAwait(false);
+
         return this.NoContent();
+    }
+
+    private async Task TryWriteAuditLogAsync(
+        string shortText,
+        string tags,
+        bool critical = false,
+        string? longText = null,
+        string? loggedData = null,
+        int? userId = null,
+        int? artistId = null,
+        int? listingId = null)
+    {
+        try
+        {
+            this.context.Set<Log>().Add(new Log
+            {
+                ShortText = shortText,
+                Tags = tags,
+                Critical = critical,
+                LongText = longText,
+                LoggedData = loggedData,
+                UserID = userId,
+                ArtistID = artistId,
+                ListingID = listingId,
+                LogTimestamp = DateTime.UtcNow,
+            });
+
+            await this.context.SaveChangesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to write user audit log. Tags: {Tags}", tags);
+        }
     }
 
     private bool UserExists(int id)

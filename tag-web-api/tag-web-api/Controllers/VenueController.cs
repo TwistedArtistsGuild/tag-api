@@ -6,6 +6,7 @@ namespace TAGWEBAPI.Controllers
 {
     using System.Globalization;
     using System.Text.RegularExpressions;
+    using Microsoft.Extensions.Logging;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -17,10 +18,12 @@ namespace TAGWEBAPI.Controllers
     {
         private static readonly Regex ValidSlugRegex = new Regex(@"^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$", RegexOptions.Compiled);
         private readonly TAGDBContext context;
+        private readonly ILogger<VenueController> logger;
 
-        public VenueController(TAGDBContext context)
+        public VenueController(TAGDBContext context, ILogger<VenueController> logger)
         {
             this.context = context;
+            this.logger = logger;
         }
 
         [HttpGet]
@@ -212,6 +215,12 @@ namespace TAGWEBAPI.Controllers
             this.context.Set<Venue>().Add(venue);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            await this.TryWriteAuditLogAsync(
+                shortText: "Venue slug reserved",
+                tags: "scope=audit;entity=venue;event=slug;operation=reserve;result=success;channel=db",
+                loggedData: $"venueId={venue.VenueID};slug={ToSlug(venue.Name)}")
+                .ConfigureAwait(false);
+
             return this.CreatedAtAction(nameof(this.GetVenueById), new { id = venue.VenueID }, new VenueSlugReservationResponse
             {
                 VenueID = venue.VenueID,
@@ -257,6 +266,12 @@ namespace TAGWEBAPI.Controllers
             venue.Name = NormalizeDisplayName(request.Title, normalizedSlug);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            await this.TryWriteAuditLogAsync(
+                shortText: "Venue slug updated",
+                tags: "scope=audit;entity=venue;event=slug;operation=update;result=success;channel=db",
+                loggedData: $"venueId={venue.VenueID};slug={ToSlug(venue.Name)}")
+                .ConfigureAwait(false);
+
             return this.Ok(new VenueSlugReservationResponse
             {
                 VenueID = venue.VenueID,
@@ -275,6 +290,12 @@ namespace TAGWEBAPI.Controllers
 
             this.context.Set<Venue>().Add(venue);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            await this.TryWriteAuditLogAsync(
+                shortText: "Venue created",
+                tags: "scope=audit;entity=venue;event=profile;operation=create;result=success;channel=db",
+                loggedData: $"venueId={venue.VenueID};name={venue.Name}")
+                .ConfigureAwait(false);
 
             return this.CreatedAtAction(nameof(this.GetVenue), new { id = venue.VenueID }, venue);
         }
@@ -297,6 +318,12 @@ namespace TAGWEBAPI.Controllers
             try
             {
                 await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+                await this.TryWriteAuditLogAsync(
+                    shortText: "Venue updated",
+                    tags: "scope=audit;entity=venue;event=profile;operation=update;result=success;channel=db",
+                    loggedData: $"venueId={venue.VenueID};name={venue.Name}")
+                    .ConfigureAwait(false);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -325,7 +352,47 @@ namespace TAGWEBAPI.Controllers
             this.context.Set<Venue>().Remove(venue);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            await this.TryWriteAuditLogAsync(
+                shortText: "Venue deleted",
+                tags: "scope=audit;entity=venue;event=profile;operation=delete;result=success;channel=db",
+                critical: true,
+                loggedData: $"venueId={id};name={venue.Name}")
+                .ConfigureAwait(false);
+
             return this.NoContent();
+        }
+
+        private async Task TryWriteAuditLogAsync(
+            string shortText,
+            string tags,
+            bool critical = false,
+            string? longText = null,
+            string? loggedData = null,
+            int? userId = null,
+            int? artistId = null,
+            int? listingId = null)
+        {
+            try
+            {
+                this.context.Set<Log>().Add(new Log
+                {
+                    ShortText = shortText,
+                    Tags = tags,
+                    Critical = critical,
+                    LongText = longText,
+                    LoggedData = loggedData,
+                    UserID = userId,
+                    ArtistID = artistId,
+                    ListingID = listingId,
+                    LogTimestamp = DateTime.UtcNow,
+                });
+
+                await this.context.SaveChangesAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to write venue audit log. Tags: {Tags}", tags);
+            }
         }
 
         private bool VenueExists(int id)
