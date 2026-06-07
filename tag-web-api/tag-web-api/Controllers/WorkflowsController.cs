@@ -740,6 +740,8 @@ public class UpsertWorkflowStepRequest
 public class ModerationUpdateRequest
 {
     public bool IsModerationBlocked { get; set; }
+
+    public int? UpdatedByUserID { get; set; }
 }
 
 public class PublishUpdateRequest
