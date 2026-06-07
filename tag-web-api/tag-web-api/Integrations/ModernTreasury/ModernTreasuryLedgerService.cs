@@ -53,7 +53,7 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
 
         var response = new ModernTreasuryLedgerResponse
         {
-            DryRun = request.DryRun ?? this.options.DryRun || !this.options.Enabled,
+            DryRun = this.options.DryRun || !this.options.Enabled,
             Posted = false,
             RequestPath = requestPath,
             Payload = payload,
@@ -66,7 +66,10 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
 
         if (response.DryRun)
         {
-            this.logger.LogInformation("Modern Treasury dry-run enabled. Ledger payload built for StripeEventId {StripeEventId}", request.StripeEventId);
+            var sanitizedStripeEventId = (request.StripeEventId ?? string.Empty)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
+            this.logger.LogInformation("Modern Treasury dry-run enabled. Ledger payload built for StripeEventId {StripeEventId}", sanitizedStripeEventId);
             return response;
         }
 
