@@ -79,10 +79,12 @@ public class WorkflowsController : ControllerBase
     };
 
     private readonly TAGDBContext context;
+    private readonly ILogger<WorkflowsController> logger;
 
-    public WorkflowsController(TAGDBContext context)
+    public WorkflowsController(TAGDBContext context, ILogger<WorkflowsController> logger)
     {
         this.context = context;
+        this.logger = logger;
     }
 
     [HttpGet("{entityType}/{entityId:int}")]
@@ -159,6 +161,14 @@ public class WorkflowsController : ControllerBase
             now).ConfigureAwait(false);
 
         await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+        await this.TryWriteAuditLogAsync(
+            shortText: "User dues status updated",
+            tags: "scope=audit;entity=user;event=workflow_dues_status;operation=update;result=success;channel=db",
+            userId: userId,
+            loggedData: $"userId={userId};artistInGoodStanding={user.ArtistInGoodStanding};updatedBy={actingUserId.Value}")
+            .ConfigureAwait(false);
+
         return this.NoContent();
     }
 
@@ -205,6 +215,15 @@ public class WorkflowsController : ControllerBase
             now).ConfigureAwait(false);
 
         await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+        await this.TryWriteAuditLogAsync(
+            shortText: "User membership ban status updated",
+            tags: "scope=audit;entity=user;event=workflow_membership_ban;operation=update;result=success;channel=db",
+            critical: isBanned,
+            userId: userId,
+            loggedData: $"userId={userId};membershipBanned={isBanned};updatedBy={actingUserId.Value};reason={user.BannedReason}")
+            .ConfigureAwait(false);
+
         return this.NoContent();
     }
 
@@ -337,6 +356,17 @@ public class WorkflowsController : ControllerBase
         }
 
         await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+        await this.TryWriteAuditLogAsync(
+            shortText: "Entity moderation status updated",
+            tags: $"scope=audit;entity={normalizedEntityType};event=workflow_moderation;operation=update;result=success;channel=db",
+            critical: request?.IsModerationBlocked == true,
+            userId: request?.UpdatedByUserID,
+            artistId: normalizedEntityType == "artist" ? entityId : null,
+            listingId: normalizedEntityType == "listing" ? entityId : null,
+            loggedData: $"entityType={normalizedEntityType};entityId={entityId};isModerationBlocked={request?.IsModerationBlocked ?? false};updatedBy={request?.UpdatedByUserID}")
+            .ConfigureAwait(false);
+
         return this.NoContent();
     }
 
@@ -391,7 +421,62 @@ public class WorkflowsController : ControllerBase
         await this.SetPublishedStatusAsync(normalizedEntityType, entityId, publish).ConfigureAwait(false);
         await this.UpsertWorkflowStepInternalAsync(normalizedEntityType, entityId, "published", publish, request?.UpdatedByUserID, now).ConfigureAwait(false);
         await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+        await this.TryWriteAuditLogAsync(
+            shortText: "Entity publish status updated",
+            tags: $"scope=audit;entity={normalizedEntityType};event=workflow_publish;operation=update;result=success;channel=db",
+            userId: request?.UpdatedByUserID,
+            artistId: normalizedEntityType == "artist" ? entityId : null,
+            listingId: normalizedEntityType == "listing" ? entityId : null,
+            loggedData: $"entityType={normalizedEntityType};entityId={entityId};isPublished={publish};updatedBy={request?.UpdatedByUserID}")
+            .ConfigureAwait(false);
+
         return this.NoContent();
+    }
+
+    private async Task TryWriteAuditLogAsync(
+        string shortText,
+        string tags,
+        bool critical = false,
+        string? longText = null,
+        string? loggedData = null,
+        int? userId = null,
+        int? artistId = null,
+        int? listingId = null)
+    {
+        var sanitizedShortText = SanitizeForLog(shortText) ?? string.Empty;
+        var sanitizedTags = SanitizeForLog(tags) ?? string.Empty;
+        var sanitizedLongText = SanitizeForLog(longText);
+        var sanitizedLoggedData = SanitizeForLog(loggedData);
+
+        try
+        {
+            this.context.Set<Log>().Add(new Log
+            {
+                ShortText = sanitizedShortText,
+                Tags = sanitizedTags,
+                Critical = critical,
+                LongText = sanitizedLongText,
+                LoggedData = sanitizedLoggedData,
+                UserID = userId,
+                ArtistID = artistId,
+                ListingID = listingId,
+                LogTimestamp = DateTime.UtcNow,
+            });
+
+            await this.context.SaveChangesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to write workflow audit log. Tags: {Tags}", sanitizedTags);
+        }
+    }
+
+    private static string? SanitizeForLog(string? value)
+    {
+        return value?
+            .Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Replace("\n", string.Empty, StringComparison.Ordinal);
     }
 
     private static string? NormalizeEntityType(string entityType)
@@ -667,6 +752,8 @@ public class UpsertWorkflowStepRequest
 public class ModerationUpdateRequest
 {
     public bool IsModerationBlocked { get; set; }
+
+    public int? UpdatedByUserID { get; set; }
 }
 
 public class PublishUpdateRequest

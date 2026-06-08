@@ -22,6 +22,24 @@ public class UserController : ControllerBase
         this.context = context;
     }
 
+    [HttpGet(Name = "GetUsers")]
+    public async Task<ActionResult<IEnumerable<object>>> GetUsers()
+    {
+        var users = await this.context.Users
+            //.Where(u => u.IsPublished && !u.HideFromPublic && !u.IsModerationBlocked)
+            .OrderBy(u => u.Username)
+            .Select(u => new
+            {
+                u.UserID,
+                DisplayName = u.PreferredName ?? u.FirstName ?? u.Username ?? u.EmailOne,
+                u.Username,
+            })
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        return this.Ok(users);
+    }
+
     [HttpGet("{id:int}")]
     public async Task<ActionResult<NextAuthUser>> Get(int id)
     {

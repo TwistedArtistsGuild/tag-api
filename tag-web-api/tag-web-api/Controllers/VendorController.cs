@@ -6,6 +6,7 @@ namespace TAGWEBAPI.Controllers
 {
     using System.Globalization;
     using System.Text.RegularExpressions;
+    using Microsoft.Extensions.Logging;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -17,10 +18,12 @@ namespace TAGWEBAPI.Controllers
     {
         private static readonly Regex ValidSlugRegex = new Regex(@"^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$", RegexOptions.Compiled);
         private readonly TAGDBContext context;
+        private readonly ILogger<VendorController> logger;
 
-        public VendorController(TAGDBContext context)
+        public VendorController(TAGDBContext context, ILogger<VendorController> logger)
         {
             this.context = context;
+            this.logger = logger;
         }
 
         [HttpGet]
@@ -188,6 +191,12 @@ namespace TAGWEBAPI.Controllers
             this.context.Set<Vendor>().Add(vendor);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            await this.TryWriteAuditLogAsync(
+                shortText: "Vendor slug reserved",
+                tags: "scope=audit;entity=vendor;event=slug;operation=reserve;result=success;channel=db",
+                loggedData: $"vendorId={vendor.VendorID};slug={ToSlug(vendor.CompanyName)}")
+                .ConfigureAwait(false);
+
             return this.CreatedAtAction(nameof(this.GetVendorById), new { id = vendor.VendorID }, new VendorSlugReservationResponse
             {
                 VendorID = vendor.VendorID,
@@ -239,6 +248,12 @@ namespace TAGWEBAPI.Controllers
 
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            await this.TryWriteAuditLogAsync(
+                shortText: "Vendor slug updated",
+                tags: "scope=audit;entity=vendor;event=slug;operation=update;result=success;channel=db",
+                loggedData: $"vendorId={vendor.VendorID};slug={ToSlug(vendor.CompanyName)}")
+                .ConfigureAwait(false);
+
             return this.Ok(new VendorSlugReservationResponse
             {
                 VendorID = vendor.VendorID,
@@ -258,6 +273,12 @@ namespace TAGWEBAPI.Controllers
 
             this.context.Set<Vendor>().Add(vendor);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+            await this.TryWriteAuditLogAsync(
+                shortText: "Vendor created",
+                tags: "scope=audit;entity=vendor;event=profile;operation=create;result=success;channel=db",
+                loggedData: $"vendorId={vendor.VendorID};companyName={vendor.CompanyName}")
+                .ConfigureAwait(false);
 
             return this.CreatedAtAction(nameof(this.GetVendor), new { id = vendor.VendorID }, vendor);
         }
@@ -280,6 +301,12 @@ namespace TAGWEBAPI.Controllers
             try
             {
                 await this.context.SaveChangesAsync().ConfigureAwait(false);
+
+                await this.TryWriteAuditLogAsync(
+                    shortText: "Vendor updated",
+                    tags: "scope=audit;entity=vendor;event=profile;operation=update;result=success;channel=db",
+                    loggedData: $"vendorId={vendor.VendorID};companyName={vendor.CompanyName}")
+                    .ConfigureAwait(false);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -308,7 +335,47 @@ namespace TAGWEBAPI.Controllers
             this.context.Set<Vendor>().Remove(vendor);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
+            await this.TryWriteAuditLogAsync(
+                shortText: "Vendor deleted",
+                tags: "scope=audit;entity=vendor;event=profile;operation=delete;result=success;channel=db",
+                critical: true,
+                loggedData: $"vendorId={id};companyName={vendor.CompanyName}")
+                .ConfigureAwait(false);
+
             return this.NoContent();
+        }
+
+        private async Task TryWriteAuditLogAsync(
+            string shortText,
+            string tags,
+            bool critical = false,
+            string? longText = null,
+            string? loggedData = null,
+            int? userId = null,
+            int? artistId = null,
+            int? listingId = null)
+        {
+            try
+            {
+                this.context.Set<Log>().Add(new Log
+                {
+                    ShortText = shortText,
+                    Tags = tags,
+                    Critical = critical,
+                    LongText = longText,
+                    LoggedData = loggedData,
+                    UserID = userId,
+                    ArtistID = artistId,
+                    ListingID = listingId,
+                    LogTimestamp = DateTime.UtcNow,
+                });
+
+                await this.context.SaveChangesAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to write vendor audit log. Tags: {Tags}", tags);
+            }
         }
 
         private bool VendorExists(int id)

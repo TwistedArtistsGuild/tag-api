@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.DataProtection;
 using TAGWEBAPI.Data;
+using TAGWEBAPI.Integrations.ModernTreasury;
 using TAGWEBAPI.Models;
 using TAGWEBAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
@@ -64,6 +65,15 @@ Console.WriteLine(textprefix + "Controllers added to the service container (Came
 builder.Services.AddDbContext<TAGDBContext>(options =>
     options.UseNpgsql(dbConnectionString));
 Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
+
+builder.Services.Configure<ModernTreasuryOptions>(
+    builder.Configuration.GetSection(ModernTreasuryOptions.SectionName));
+
+builder.Services.AddHttpClient<IModernTreasuryLedgerService, ModernTreasuryLedgerService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+Console.WriteLine(textprefix + "Modern Treasury ledger service configured.");
 
 // Ensure Data Protection services are registered for server-side envelope protection (messages)
 builder.Services.AddDataProtection();
