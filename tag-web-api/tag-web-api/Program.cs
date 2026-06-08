@@ -4,8 +4,11 @@
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.DataProtection;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
+using TAGWEBAPI.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 Console.WriteLine("========================================");
 Console.WriteLine("Setting Up TAG WEB API...");
@@ -61,6 +64,14 @@ Console.WriteLine(textprefix + "Controllers added to the service container (Came
 builder.Services.AddDbContext<TAGDBContext>(options =>
     options.UseNpgsql(dbConnectionString));
 Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
+
+// Ensure Data Protection services are registered for server-side envelope protection (messages)
+builder.Services.AddDataProtection();
+Console.WriteLine(textprefix + "Data Protection services registered.");
+
+// Register SignalR
+builder.Services.AddSignalR();
+Console.WriteLine(textprefix + "SignalR services registered.");
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -120,12 +131,18 @@ try
         app.UseHttpsRedirection();
     }
 
+    // Serve static files (e.g. uploaded attachments under wwwroot/uploads/messages)
+    app.UseStaticFiles();
+    Console.WriteLine(textprefix + "Static file middleware enabled (wwwroot).");
+
     app.UseAuthorization();
 
     // Map the default API call to return "Hello World!"
     app.MapGet("/api/", () => "Hello World!");
 
     app.MapControllers();
+    // Map messaging hub
+    app.MapHub<MessagingHub>("/hubs/messaging");
 
     Console.WriteLine("========================================");
     Console.WriteLine("TAG WEB API is starting: app.run()");

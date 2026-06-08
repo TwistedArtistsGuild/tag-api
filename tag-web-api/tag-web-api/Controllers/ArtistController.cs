@@ -272,6 +272,14 @@ public class ArtistController : ControllerBase
             return NotFound();
         }
 
+        // Fetch linked user IDs from the linker table (users associated with this artist)
+        var artistUserId = await _context.Set<Linker_UserToArtist>()
+            .AsNoTracking()
+            .Where(l => l.ArtistID == artist.ArtistID)
+            .Select(l => l.UserID)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+
         // Transitional fallback: tolerate DBs that do not yet have ArtCategory hierarchy columns.
         List<Listing> listings;
         try
@@ -344,6 +352,7 @@ public class ArtistController : ControllerBase
                 artist.SEOTags,
                 artist.Applied,
                 artist.Since,
+                userId = artistUserId
             },
             profilePic = artist.ProfilePic,
             coverPic = artist.CoverPic,

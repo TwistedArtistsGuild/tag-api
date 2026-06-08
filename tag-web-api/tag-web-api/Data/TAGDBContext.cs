@@ -140,6 +140,14 @@ namespace TAGWEBAPI.Data
 
         public DbSet<UnifiedWorkflow> UnifiedWorkflows { get; set; }
 
+        public DbSet<Conversation> Conversations { get; set; }
+
+        public DbSet<ConversationParticipant> ConversationParticipants { get; set; }
+
+        public DbSet<MessageAttachment> MessageAttachments { get; set; }
+
+        public DbSet<MessageImpression> MessageImpressions { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -184,6 +192,10 @@ namespace TAGWEBAPI.Data
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.Contact.ContactConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.LinkerEntityToContactConfiguration());
             modelBuilder.ApplyConfiguration(new TAGWEBAPI.Models.Configurations.UnifiedWorkflowConfiguration());
+            modelBuilder.Entity<Conversation>().HasKey(c => c.Id);
+            modelBuilder.Entity<ConversationParticipant>().HasKey(p => p.Id);
+            modelBuilder.Entity<MessageAttachment>().HasKey(a => a.Id);
+            modelBuilder.Entity<MessageImpression>().HasKey(mi => mi.Id);
         }
     }
 }
