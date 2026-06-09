@@ -21,5 +21,6 @@ public enum TargetType
     Listing = 1,
     Artist = 2,
     Comment = 3,
-    Blog = 4
+    Blog = 4,
+    Message = 5
 }
