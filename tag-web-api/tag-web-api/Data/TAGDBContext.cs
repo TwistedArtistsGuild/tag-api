@@ -152,6 +152,10 @@ namespace TAGWEBAPI.Data
 
         public DbSet<MessageImpression> MessageImpressions { get; set; }
 
+        public DbSet<Motion> Motions { get; set; }
+
+        public DbSet<MotionVote> MotionVotes { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -202,6 +206,8 @@ namespace TAGWEBAPI.Data
             modelBuilder.Entity<ConversationParticipant>().HasKey(p => p.Id);
             modelBuilder.Entity<MessageAttachment>().HasKey(a => a.Id);
             modelBuilder.Entity<MessageImpression>().HasKey(mi => mi.Id);
+            modelBuilder.Entity<Motion>().HasKey(m => m.Id);
+            modelBuilder.Entity<MotionVote>().HasKey(v => v.Id);
         }
     }
 }
