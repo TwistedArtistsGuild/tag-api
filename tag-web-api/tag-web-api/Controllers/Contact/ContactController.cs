@@ -168,7 +168,10 @@ namespace TAGWEBAPI.Controllers.Contact
             var filteredLinks = linkedContacts.Where(l => l.Contact != null && (includePrivate || l.Scope != ContactScope.Private))
                 .ToList();
 
-            var primaryLink = filteredLinks.FirstOrDefault(l => l.Scope == ContactScope.Primary);
+            var primaryLink = filteredLinks
+                .OrderBy(l => l.DisplayOrder)
+                .ThenBy(l => l.Linker_EntityToContactID)
+                .FirstOrDefault();
             var primaryContact = primaryLink?.Contact;
             object? primaryPhone = null;
             object? primaryAddress = null;
@@ -411,7 +414,8 @@ namespace TAGWEBAPI.Controllers.Contact
             this.context.Contacts.Add(contact);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
 
-            var scope = ResolveContactScope(request.Scope, request.IsPrivate, request.SetAsPrimary, defaultPrivate);
+            var isPrivate = request.IsPrivate ?? defaultPrivate;
+            var scope = isPrivate ? ContactScope.Private : ContactScope.Secondary;
 
             var link = new Linker_EntityToContact
             {
@@ -448,8 +452,68 @@ namespace TAGWEBAPI.Controllers.Contact
                     entityId = request.EntityID,
                     contactId = contact.ContactID,
                     linkId = link.Linker_EntityToContactID,
-                    primaryUpdated = scope == ContactScope.Primary,
+                    isPrivate,
+                    primaryUpdated = !isPrivate && (request.DisplayOrder ?? 0) == 0,
                 });
+        }
+
+        [HttpPut("order/{context}/{entityId:int}")]
+        public async Task<IActionResult> PutContactOrder(string context, int entityId, UpdateContactOrderRequest request)
+        {
+            if (request == null || request.LinkIds == null || request.LinkIds.Count == 0)
+            {
+                return this.BadRequest("LinkIds are required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(context))
+            {
+                return this.BadRequest($"Invalid context. Valid values: {string.Join(", ", ValidContexts)}.");
+            }
+
+            var normalizedContext = context.Trim().ToLowerInvariant();
+            if (!ValidContexts.Contains(normalizedContext))
+            {
+                return this.BadRequest($"Invalid context. Valid values: {string.Join(", ", ValidContexts)}.");
+            }
+
+            if (!this.EntityExists(normalizedContext, entityId))
+            {
+                return this.NotFound($"{normalizedContext} entity {entityId} was not found.");
+            }
+
+            var normalizedIds = request.LinkIds.Distinct().ToArray();
+            if (normalizedIds.Length == 0)
+            {
+                return this.BadRequest("LinkIds are required.");
+            }
+
+            var query = this.context.Set<Linker_EntityToContact>().Where(l => normalizedIds.Contains(l.Linker_EntityToContactID));
+            query = normalizedContext switch
+            {
+                "artist" => query.Where(l => l.ArtistID == entityId),
+                "user" => query.Where(l => l.UserID == entityId),
+                "venue" => query.Where(l => l.VenueID == entityId),
+                "vendor" => query.Where(l => l.VendorID == entityId),
+                _ => query.Where(l => false),
+            };
+
+            var links = await query.ToListAsync().ConfigureAwait(false);
+            if (links.Count != normalizedIds.Length)
+            {
+                return this.BadRequest("Some link IDs do not belong to the requested entity context.");
+            }
+
+            var orderMap = request.LinkIds.Select((id, index) => new { id, index })
+                .GroupBy(x => x.id)
+                .ToDictionary(g => g.Key, g => g.First().index);
+
+            foreach (var link in links)
+            {
+                link.DisplayOrder = orderMap[link.Linker_EntityToContactID];
+            }
+
+            await this.context.SaveChangesAsync().ConfigureAwait(false);
+            return this.NoContent();
         }
 
         [HttpPut("{id}")]
@@ -647,28 +711,6 @@ namespace TAGWEBAPI.Controllers.Contact
                 .ConfigureAwait(false);
         }
 
-        private static ContactScope ResolveContactScope(string? scope, bool? isPrivate, bool? setAsPrimary, bool defaultPrivate)
-        {
-            if (!string.IsNullOrWhiteSpace(scope))
-            {
-                return scope.Trim().ToLowerInvariant() switch
-                {
-                    "private" => ContactScope.Private,
-                    "primary" => ContactScope.Primary,
-                    "secondary" => ContactScope.Secondary,
-                    _ => defaultPrivate ? ContactScope.Private : ContactScope.Secondary,
-                };
-            }
-
-            if (setAsPrimary == true)
-            {
-                return ContactScope.Primary;
-            }
-
-            var resolvedIsPrivate = isPrivate ?? defaultPrivate;
-            return resolvedIsPrivate ? ContactScope.Private : ContactScope.Secondary;
-        }
-
         private static bool TryNormalizeUrl(string? rawValue, out string normalizedUrl)
         {
             normalizedUrl = string.Empty;
@@ -746,8 +788,6 @@ namespace TAGWEBAPI.Controllers.Contact
 
         public bool? IsPrivate { get; set; }
 
-        public string? Scope { get; set; }
-
         public int? DisplayOrder { get; set; }
 
         public string? PhoneNumber { get; set; }
@@ -776,6 +816,10 @@ namespace TAGWEBAPI.Controllers.Contact
 
         public string? OperationHours { get; set; }
 
-        public bool? SetAsPrimary { get; set; }
+    }
+
+    public sealed class UpdateContactOrderRequest
+    {
+        public List<int> LinkIds { get; set; } = new();
     }
 }
