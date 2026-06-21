@@ -20,15 +20,64 @@ namespace TAGWEBAPI.Controllers
             _context = context;
         }
 
+        // Helper Method: Parse string like "Weekly" into actual days to add
+        private int ParseDurationInDays(string durationString)
+        {
+            if (string.IsNullOrWhiteSpace(durationString)) return 7; // Default fallback to 1 week
+            
+            string lowerDuration = durationString.ToLower().Trim();
+
+            if (lowerDuration.Contains("week")) return 7;
+            if (lowerDuration.Contains("month")) return 30; // Approx 1 Month
+            if (lowerDuration.Contains("quarter")) return 90; // Approx 3 Months
+            if (lowerDuration.Contains("year")) return 365; // 1 Year
+
+            return 7; // Fallback
+        }
+
+        // Helper Method: Safely expire motions past their deadline
+        private async Task CheckExpiration(Motion motion)
+        {
+            if (motion.Status == "Seconded" && motion.SecondedOn.HasValue)
+            {
+                int daysAllowed = ParseDurationInDays(motion.Duration);
+                DateTime expirationDate = motion.SecondedOn.Value.AddDays(daysAllowed);
+
+                if (DateTime.UtcNow >= expirationDate)
+                {
+                    motion.Status = "Closed";
+                    await _context.SaveChangesAsync();
+                }
+            }
+        }
+
         // GET: api/Motions
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Motion>>> GetMotions()
         {
-            return await _context.Motions
+            var motions = await _context.Motions
                 .Include(m => m.ProposedBy)
                 .Include(m => m.SecondedBy)
                 .OrderByDescending(m => m.ProposedOn)
                 .ToListAsync();
+
+            // Expire naturally returned motions instantly
+            bool changesMade = false;
+            foreach(var motion in motions)
+            {
+                if (motion.Status == "Seconded" && motion.SecondedOn.HasValue)
+                {
+                    int daysAllowed = ParseDurationInDays(motion.Duration);
+                    if (DateTime.UtcNow >= motion.SecondedOn.Value.AddDays(daysAllowed))
+                    {
+                        motion.Status = "Closed";
+                        changesMade = true;
+                    }
+                }
+            }
+
+            if (changesMade) await _context.SaveChangesAsync();
+            return motions;
         }
 
         // GET: api/Motions/5
@@ -43,6 +92,10 @@ namespace TAGWEBAPI.Controllers
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (motion == null) return NotFound();
+
+            // Check if it expired right now
+            await CheckExpiration(motion);
+
             return Ok(motion);
         }
 
@@ -72,7 +125,6 @@ namespace TAGWEBAPI.Controllers
             if (motion.Status != "Proposed") 
                 return BadRequest("Motion is already seconded or closed.");
 
-            // RESTORED PROPOSER RESTRICTION
             if (motion.ProposedById == userId) 
                 return BadRequest("Proposer cannot second their own motion.");
 
@@ -91,7 +143,12 @@ namespace TAGWEBAPI.Controllers
         public async Task<IActionResult> VoteMotion(int id, [FromBody] VoteRequest request)
         {
             var motion = await _context.Motions.FindAsync(id);
-            if (motion == null || motion.Status != "Seconded") 
+            if (motion == null) return NotFound();
+            
+            // Final safety check against expired motion before catching a vote
+            await CheckExpiration(motion);
+
+            if (motion.Status != "Seconded") 
                 return BadRequest("Motion is not open for voting.");
 
             var existingVote = await _context.MotionVotes
