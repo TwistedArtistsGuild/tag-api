@@ -474,6 +474,8 @@ public class CommentsController : ControllerBase
             .Select(blog => blog.BlogID)
             .ToListAsync();
 
+        var ownedUserIds = new List<int> { ownerUserId };
+
         var candidateComments = await _context.Comments
             .AsNoTracking()
             .Where(comment => !comment.IsDeleted
@@ -484,6 +486,7 @@ public class CommentsController : ControllerBase
                     || (comment.TargetType == CommentTargetType.Listing && ownedListingIds.Contains(comment.TargetId))
                     || (comment.TargetType == CommentTargetType.Blog && ownedBlogIds.Contains(comment.TargetId))
                     || (comment.TargetType == CommentTargetType.News && ownedBlogIds.Contains(comment.TargetId))
+                    || (comment.TargetType == CommentTargetType.User && ownedUserIds.Contains(comment.TargetId))
                 ))
             .OrderByDescending(comment => comment.CreatedAt)
             .Select(comment => new
@@ -504,16 +507,17 @@ public class CommentsController : ControllerBase
             return (count, null);
         }
 
-        var commenterName = await _context.Set<NextAuthUser>()
+        var commenter = await _context.Set<NextAuthUser>()
             .AsNoTracking()
             .Where(user => user.Id == latest.UserId)
-            .Select(user => user.Name)
+            .Select(user => new { user.Name, user.Image })
             .FirstOrDefaultAsync();
 
         return (count, new
         {
             commentId = latest.Id,
-            commenterName = string.IsNullOrWhiteSpace(commenterName) ? "Someone" : commenterName,
+            commenterName = string.IsNullOrWhiteSpace(commenter?.Name) ? "Someone" : commenter.Name,
+            commenterImage = commenter?.Image,
             contentPreview = latest.Content.Length > 120 ? latest.Content[..120] : latest.Content,
             targetType = latest.TargetType.ToString(),
             href = await BuildCommentHref(latest.TargetType, latest.TargetId, latest.Id),
@@ -564,6 +568,15 @@ public class CommentsController : ControllerBase
                 .Select(blog => blog.UserID)
                 .Distinct()
                 .ToListAsync();
+        }
+
+        if (targetType == CommentTargetType.User)
+        {
+            var exists = await _context.Users
+                .AsNoTracking()
+                .AnyAsync(user => user.UserID == targetId);
+
+            return exists ? new List<int> { targetId } : new List<int>();
         }
 
         return new List<int>();
@@ -618,6 +631,22 @@ public class CommentsController : ControllerBase
         if (targetType == CommentTargetType.News)
         {
             return $"/news?commentId={commentId}#comments-section";
+        }
+
+        if (targetType == CommentTargetType.User)
+        {
+            var username = await _context.Users
+                .AsNoTracking()
+                .Where(user => user.UserID == targetId)
+                .Select(user => user.Username)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                return $"/user/{username}?commentId={commentId}#comments";
+            }
+
+            return "/user";
         }
 
         return $"/news?commentId={commentId}#comments-section";
