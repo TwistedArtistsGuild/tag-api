@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
+using TAGWEBAPI.Hubs;
 
 namespace TAGWEBAPI.Controllers;
 
@@ -11,11 +13,13 @@ public class CommentsController : ControllerBase
 {
     private readonly TAGDBContext _context;
     private readonly ILogger<CommentsController> _logger;
+    private readonly IHubContext<MessagingHub> _hubContext;
 
-    public CommentsController(TAGDBContext context, ILogger<CommentsController> logger)
+    public CommentsController(TAGDBContext context, ILogger<CommentsController> logger, IHubContext<MessagingHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     /// <summary>
@@ -165,6 +169,8 @@ public class CommentsController : ControllerBase
 
             _context.Comments.Add(comment);
             await _context.SaveChangesAsync();
+
+            await BroadcastCommentSummaryToOwners(comment);
 
             var commentDto = await MapToCommentDto(comment, false);
 
@@ -322,6 +328,32 @@ public class CommentsController : ControllerBase
         }
     }
 
+    [HttpGet("received-summary")]
+    public async Task<ActionResult> GetReceivedCommentSummary(
+        [FromQuery] int userId,
+        [FromQuery] int windowMinutes = 60,
+        [FromQuery] bool includeSelfActions = true)
+    {
+        if (windowMinutes <= 0)
+        {
+            windowMinutes = 60;
+        }
+
+        var sinceUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+        var summary = await BuildCommentSummaryForOwner(userId, sinceUtc, includeSelfActions);
+
+        return Ok(new
+        {
+            userId,
+            windowMinutes,
+            sinceUtc,
+            includeSelfActions,
+            commentCountLastHour = summary.count,
+            latestComment = summary.latest,
+            updatedAt = DateTime.UtcNow,
+        });
+    }
+
     private async Task<CommentDto> MapToCommentDto(Comment comment, bool includeReplies)
     {
         // Fetch user details
@@ -387,5 +419,207 @@ public class CommentsController : ControllerBase
         }
 
         return dto;
+    }
+
+    private async Task BroadcastCommentSummaryToOwners(Comment comment, bool includeSelfActions = true)
+    {
+        var ownerUserIds = await GetTargetOwnerUserIds(comment.TargetType, comment.TargetId);
+        if (!ownerUserIds.Any())
+        {
+            return;
+        }
+
+        var recipients = includeSelfActions
+            ? ownerUserIds.Distinct().ToList()
+            : ownerUserIds.Where(userId => userId != comment.UserId).Distinct().ToList();
+        if (!recipients.Any())
+        {
+            return;
+        }
+
+        var sinceUtc = DateTime.UtcNow.AddHours(-1);
+        foreach (var ownerUserId in recipients)
+        {
+            var summary = await BuildCommentSummaryForOwner(ownerUserId, sinceUtc, includeSelfActions);
+            await _hubContext.Clients.Group($"user-{ownerUserId}")
+                .SendAsync("NotificationSummaryUpdated", new
+                {
+                    type = "comments",
+                    includeSelfActions,
+                    commentCountLastHour = summary.count,
+                    latestComment = summary.latest,
+                    timestamp = DateTime.UtcNow,
+                });
+        }
+    }
+
+    private async Task<(int count, object? latest)> BuildCommentSummaryForOwner(int ownerUserId, DateTime sinceUtc, bool includeSelfActions)
+    {
+        var ownedArtistIds = await _context.Set<Linker_UserToArtist>()
+            .AsNoTracking()
+            .Where(link => link.UserID == ownerUserId)
+            .Select(link => link.ArtistID)
+            .Distinct()
+            .ToListAsync();
+
+        var ownedListingIds = await _context.Listings
+            .AsNoTracking()
+            .Where(listing => ownedArtistIds.Contains(listing.ArtistID))
+            .Select(listing => listing.ListingID)
+            .ToListAsync();
+
+        var ownedBlogIds = await _context.Blogs
+            .AsNoTracking()
+            .Where(blog => blog.UserID == ownerUserId)
+            .Select(blog => blog.BlogID)
+            .ToListAsync();
+
+        var candidateComments = await _context.Comments
+            .AsNoTracking()
+            .Where(comment => !comment.IsDeleted
+                && comment.CreatedAt >= sinceUtc
+                && (includeSelfActions || comment.UserId != ownerUserId)
+                && (
+                    (comment.TargetType == CommentTargetType.Artist && ownedArtistIds.Contains(comment.TargetId))
+                    || (comment.TargetType == CommentTargetType.Listing && ownedListingIds.Contains(comment.TargetId))
+                    || (comment.TargetType == CommentTargetType.Blog && ownedBlogIds.Contains(comment.TargetId))
+                    || (comment.TargetType == CommentTargetType.News && ownedBlogIds.Contains(comment.TargetId))
+                ))
+            .OrderByDescending(comment => comment.CreatedAt)
+            .Select(comment => new
+            {
+                comment.Id,
+                comment.UserId,
+                comment.Content,
+                comment.TargetType,
+                comment.TargetId,
+                comment.CreatedAt,
+            })
+            .ToListAsync();
+
+        var count = candidateComments.Count;
+        var latest = candidateComments.FirstOrDefault();
+        if (latest == null)
+        {
+            return (count, null);
+        }
+
+        var commenterName = await _context.Set<NextAuthUser>()
+            .AsNoTracking()
+            .Where(user => user.Id == latest.UserId)
+            .Select(user => user.Name)
+            .FirstOrDefaultAsync();
+
+        return (count, new
+        {
+            commentId = latest.Id,
+            commenterName = string.IsNullOrWhiteSpace(commenterName) ? "Someone" : commenterName,
+            contentPreview = latest.Content.Length > 120 ? latest.Content[..120] : latest.Content,
+            targetType = latest.TargetType.ToString(),
+            href = await BuildCommentHref(latest.TargetType, latest.TargetId, latest.Id),
+            createdAt = latest.CreatedAt,
+        });
+    }
+
+    private async Task<List<int>> GetTargetOwnerUserIds(CommentTargetType targetType, int targetId)
+    {
+        if (targetType == CommentTargetType.Artist)
+        {
+            return await _context.Set<Linker_UserToArtist>()
+                .AsNoTracking()
+                .Where(link => link.ArtistID == targetId)
+                .Select(link => link.UserID)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        if (targetType == CommentTargetType.Listing)
+        {
+            return await (
+                from listing in _context.Listings.AsNoTracking()
+                join link in _context.Set<Linker_UserToArtist>().AsNoTracking()
+                    on listing.ArtistID equals link.ArtistID
+                where listing.ListingID == targetId
+                select link.UserID
+            )
+            .Distinct()
+            .ToListAsync();
+        }
+
+        if (targetType == CommentTargetType.Blog)
+        {
+            return await _context.Blogs
+                .AsNoTracking()
+                .Where(blog => blog.BlogID == targetId)
+                .Select(blog => blog.UserID)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        if (targetType == CommentTargetType.News)
+        {
+            return await _context.Blogs
+                .AsNoTracking()
+                .Where(blog => blog.BlogID == targetId)
+                .Select(blog => blog.UserID)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        return new List<int>();
+    }
+
+    private async Task<string> BuildCommentHref(CommentTargetType targetType, int targetId, long commentId)
+    {
+        if (targetType == CommentTargetType.Listing)
+        {
+            var listingRoute = await (
+                from listing in _context.Listings.AsNoTracking()
+                join artist in _context.Artists.AsNoTracking()
+                    on listing.ArtistID equals artist.ArtistID
+                where listing.ListingID == targetId
+                select new { ArtistPath = artist.Path, ListingPath = listing.Path }
+            ).FirstOrDefaultAsync();
+
+            if (listingRoute != null)
+            {
+                return $"/artists/{listingRoute.ArtistPath}/listings/{listingRoute.ListingPath}?commentId={commentId}#comments-section";
+            }
+        }
+
+        if (targetType == CommentTargetType.Artist)
+        {
+            var artistPath = await _context.Artists
+                .AsNoTracking()
+                .Where(artist => artist.ArtistID == targetId)
+                .Select(artist => artist.Path)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(artistPath))
+            {
+                return $"/artists/{artistPath}?commentId={commentId}#comments-section";
+            }
+        }
+
+        if (targetType == CommentTargetType.Blog)
+        {
+            var blogPath = await _context.Blogs
+                .AsNoTracking()
+                .Where(blog => blog.BlogID == targetId)
+                .Select(blog => blog.Path)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(blogPath))
+            {
+                return $"/blogs/{blogPath}?commentId={commentId}#comments-section";
+            }
+        }
+
+        if (targetType == CommentTargetType.News)
+        {
+            return $"/news?commentId={commentId}#comments-section";
+        }
+
+        return $"/news?commentId={commentId}#comments-section";
     }
 }
