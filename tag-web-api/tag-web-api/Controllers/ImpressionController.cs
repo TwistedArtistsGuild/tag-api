@@ -99,6 +99,35 @@ public class ImpressionController : ControllerBase
     }
 
     /// <summary>
+    /// Gets received reaction totals for the current user across owned artists/listings.
+    /// </summary>
+    [HttpGet("received-summary")]
+    public async Task<ActionResult> GetReceivedSummary(
+        [FromQuery] int userId,
+        [FromQuery] int windowMinutes = 60,
+        [FromQuery] bool includeSelfActions = true)
+    {
+        if (windowMinutes <= 0)
+        {
+            windowMinutes = 60;
+        }
+
+        var sinceUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+        var summary = await BuildReceivedReactionSummaryForUser(userId, sinceUtc, includeSelfActions);
+
+        return Ok(new
+        {
+            userId,
+            windowMinutes,
+            sinceUtc,
+            includeSelfActions,
+            reactionCountLastHour = summary.count,
+            latestReaction = summary.latest,
+            updatedAt = DateTime.UtcNow
+        });
+    }
+
+    /// <summary>
     /// React to a listing, artist, or comment with an impression
     /// </summary>
     [HttpPost("react")]
@@ -123,12 +152,14 @@ public class ImpressionController : ControllerBase
                         && li.UserId == request.UserId 
                         && li.ImpressionId == request.ImpressionId);
 
+                var wasRemoved = false;
+
                 if (existingReaction != null)
                 {
                     // Remove the reaction (toggle off)
                     _context.ListingImpressions.Remove(existingReaction);
                     await _context.SaveChangesAsync();
-                    return Ok(new { message = "Reaction removed", removed = true });
+                    wasRemoved = true;
                 }
                 else
                 {
@@ -143,8 +174,10 @@ public class ImpressionController : ControllerBase
 
                     _context.ListingImpressions.Add(newReaction);
                     await _context.SaveChangesAsync();
-                    return Ok(new { message = "Reaction added", removed = false });
                 }
+
+                await BroadcastReceivedReactionSummaryToOwners(request.TargetType, request.TargetId, request.UserId, includeSelfActions: true);
+                return Ok(new { message = wasRemoved ? "Reaction removed" : "Reaction added", removed = wasRemoved });
             }
             else if (request.TargetType == TargetType.Artist)
             {
@@ -154,12 +187,14 @@ public class ImpressionController : ControllerBase
                         && ai.UserId == request.UserId 
                         && ai.ImpressionId == request.ImpressionId);
 
+                var wasRemoved = false;
+
                 if (existingReaction != null)
                 {
                     // Remove the reaction (toggle off)
                     _context.ArtistImpressions.Remove(existingReaction);
                     await _context.SaveChangesAsync();
-                    return Ok(new { message = "Reaction removed", removed = true });
+                    wasRemoved = true;
                 }
                 else
                 {
@@ -174,8 +209,10 @@ public class ImpressionController : ControllerBase
 
                     _context.ArtistImpressions.Add(newReaction);
                     await _context.SaveChangesAsync();
-                    return Ok(new { message = "Reaction added", removed = false });
                 }
+
+                await BroadcastReceivedReactionSummaryToOwners(request.TargetType, request.TargetId, request.UserId, includeSelfActions: true);
+                return Ok(new { message = wasRemoved ? "Reaction removed" : "Reaction added", removed = wasRemoved });
             }
             else if (request.TargetType == TargetType.Comment)
             {
@@ -340,5 +377,166 @@ public class ImpressionController : ControllerBase
             _logger.LogError(ex, "Error reacting to {TargetType} with ID {TargetId}", request.TargetType, request.TargetId);
             return StatusCode(500, "An error occurred while processing the reaction");
         }
+    }
+
+    private async Task BroadcastReceivedReactionSummaryToOwners(TargetType targetType, int targetId, int reactorUserId, bool includeSelfActions = true)
+    {
+        List<int> ownerUserIds;
+
+        if (targetType == TargetType.Artist)
+        {
+            ownerUserIds = await _context.Set<Linker_UserToArtist>()
+                .AsNoTracking()
+                .Where(link => link.ArtistID == targetId)
+                .Select(link => link.UserID)
+                .Distinct()
+                .ToListAsync();
+        }
+        else if (targetType == TargetType.Listing)
+        {
+            ownerUserIds = await (
+                from listing in _context.Listings.AsNoTracking()
+                join link in _context.Set<Linker_UserToArtist>().AsNoTracking()
+                    on listing.ArtistID equals link.ArtistID
+                where listing.ListingID == targetId
+                select link.UserID
+            )
+            .Distinct()
+            .ToListAsync();
+        }
+        else
+        {
+            return;
+        }
+
+        var recipients = includeSelfActions
+            ? ownerUserIds.Distinct().ToList()
+            : ownerUserIds.Where(id => id != reactorUserId).Distinct().ToList();
+        if (!recipients.Any())
+        {
+            return;
+        }
+
+        var sinceUtc = DateTime.UtcNow.AddHours(-1);
+        foreach (var ownerUserId in recipients)
+        {
+            var summary = await BuildReceivedReactionSummaryForUser(ownerUserId, sinceUtc, includeSelfActions);
+            await _hubContext.Clients.Group($"user-{ownerUserId}")
+                .SendAsync("NotificationSummaryUpdated", new
+                {
+                    type = "reactions",
+                    includeSelfActions,
+                    reactionCountLastHour = summary.count,
+                    latestReaction = summary.latest,
+                    timestamp = DateTime.UtcNow
+                });
+        }
+    }
+
+    private async Task<(int count, object? latest)> BuildReceivedReactionSummaryForUser(int userId, DateTime sinceUtc, bool includeSelfActions)
+    {
+        var ownedArtistIds = await _context.Set<Linker_UserToArtist>()
+            .AsNoTracking()
+            .Where(link => link.UserID == userId)
+            .Select(link => link.ArtistID)
+            .Distinct()
+            .ToListAsync();
+
+        if (!ownedArtistIds.Any())
+        {
+            return (0, null);
+        }
+
+        var listingReactions = await (
+            from impression in _context.ListingImpressions.AsNoTracking()
+            join listing in _context.Listings.AsNoTracking()
+                on impression.ListingId equals listing.ListingID
+            where ownedArtistIds.Contains(listing.ArtistID)
+                && (includeSelfActions || impression.UserId != userId)
+                && impression.CreatedAt >= sinceUtc
+            select new
+            {
+                impression.UserId,
+                impression.CreatedAt,
+                TargetType = TargetType.Listing,
+                TargetId = listing.ListingID
+            }
+        ).ToListAsync();
+
+        var artistReactions = await _context.ArtistImpressions
+            .AsNoTracking()
+            .Where(impression => ownedArtistIds.Contains(impression.ArtistId)
+                && (includeSelfActions || impression.UserId != userId)
+                && impression.CreatedAt >= sinceUtc)
+            .Select(impression => new
+            {
+                impression.UserId,
+                impression.CreatedAt,
+                TargetType = TargetType.Artist,
+                TargetId = impression.ArtistId
+            })
+            .ToListAsync();
+
+        var reactions = listingReactions
+            .Concat(artistReactions)
+            .OrderByDescending(reaction => reaction.CreatedAt)
+            .ToList();
+
+        var count = reactions.Count;
+        var latest = reactions.FirstOrDefault();
+        if (latest == null)
+        {
+            return (count, null);
+        }
+
+        var reactorName = await _context.NextAuthUsers
+            .AsNoTracking()
+            .Where(user => user.Id == latest.UserId)
+            .Select(user => user.Name)
+            .FirstOrDefaultAsync();
+
+        return (count, new
+        {
+            reactorName = string.IsNullOrWhiteSpace(reactorName) ? "Someone" : reactorName,
+            targetType = latest.TargetType.ToString(),
+            targetId = latest.TargetId,
+            href = await BuildReactionHref(latest.TargetType, latest.TargetId),
+            createdAt = latest.CreatedAt,
+        });
+    }
+
+    private async Task<string> BuildReactionHref(TargetType targetType, int targetId)
+    {
+        if (targetType == TargetType.Listing)
+        {
+            var listingRoute = await (
+                from listing in _context.Listings.AsNoTracking()
+                join artist in _context.Artists.AsNoTracking()
+                    on listing.ArtistID equals artist.ArtistID
+                where listing.ListingID == targetId
+                select new { ArtistPath = artist.Path, ListingPath = listing.Path }
+            ).FirstOrDefaultAsync();
+
+            if (listingRoute != null)
+            {
+                return $"/artists/{listingRoute.ArtistPath}/listings/{listingRoute.ListingPath}";
+            }
+        }
+
+        if (targetType == TargetType.Artist)
+        {
+            var artistPath = await _context.Artists
+                .AsNoTracking()
+                .Where(artist => artist.ArtistID == targetId)
+                .Select(artist => artist.Path)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(artistPath))
+            {
+                return $"/artists/{artistPath}";
+            }
+        }
+
+        return "/artists";
     }
 }

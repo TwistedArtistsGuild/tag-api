@@ -163,6 +163,21 @@ public class ConversationsController : ControllerBase
         return Ok(result);
     }
 
+    // GET /api/conversations/unread-total?userId={id}
+    [HttpGet("unread-total")]
+    public async Task<IActionResult> GetUnreadTotal([FromQuery] int userId)
+    {
+        var total = await GetUnreadMessageTotalForUser(userId);
+        var latest = await BuildLatestIncomingMessageSummaryForUser(userId);
+        return Ok(new
+        {
+            userId,
+            unreadMessages = total,
+            latestMessage = latest,
+            updatedAt = DateTime.UtcNow
+        });
+    }
+
     // POST /api/conversations
     [HttpPost]
     public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest req)
@@ -258,6 +273,17 @@ public class ConversationsController : ControllerBase
                 userId = req.UserId,
                 status = "read",
                 count = unread.Count,
+                timestamp = DateTime.UtcNow
+            });
+
+        var unreadTotal = await GetUnreadMessageTotalForUser(req.UserId);
+        var latest = await BuildLatestIncomingMessageSummaryForUser(req.UserId);
+        await _hubContext.Clients.Group($"user-{req.UserId}")
+            .SendAsync("NotificationSummaryUpdated", new
+            {
+                type = "messages",
+                unreadMessages = unreadTotal,
+                latestMessage = latest,
                 timestamp = DateTime.UtcNow
             });
 
@@ -471,6 +497,17 @@ public class ConversationsController : ControllerBase
                         createdAt = message.Sent
                     }
                 });
+
+            var unreadTotal = await GetUnreadMessageTotalForUser(participantId);
+            var latest = await BuildLatestIncomingMessageSummaryForUser(participantId);
+            await _hubContext.Clients.Group($"user-{participantId}")
+                .SendAsync("NotificationSummaryUpdated", new
+                {
+                    type = "messages",
+                    unreadMessages = unreadTotal,
+                    latestMessage = latest,
+                    timestamp = DateTime.UtcNow
+                });
         }
 
         // Return the created message details
@@ -584,6 +621,106 @@ public class ConversationsController : ControllerBase
             success = true,
             message = "Conversation deleted successfully"
         });
+    }
+
+    private async Task<int> GetUnreadMessageTotalForUser(int userId)
+    {
+        var conversationIds = await _context.ConversationParticipants
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.ConversationId)
+            .Distinct()
+            .ToListAsync();
+
+        if (!conversationIds.Any())
+        {
+            return 0;
+        }
+
+        return await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId.HasValue
+                && conversationIds.Contains(m.ConversationId.Value)
+                && !m.IsRead
+                && m.FromUserID != userId)
+            .CountAsync();
+    }
+
+    private async Task<object?> BuildLatestIncomingMessageSummaryForUser(int userId)
+    {
+        var conversationIds = await _context.ConversationParticipants
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.ConversationId)
+            .Distinct()
+            .ToListAsync();
+
+        if (!conversationIds.Any())
+        {
+            return null;
+        }
+
+        var latestIncoming = await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId.HasValue
+                && conversationIds.Contains(m.ConversationId.Value)
+                && !m.IsDeleted
+                && m.FromUserID != userId)
+            .OrderByDescending(m => m.Sent)
+            .Select(m => new
+            {
+                m.MessageID,
+                ConversationId = m.ConversationId!.Value,
+                m.FromUserID,
+                m.Sent,
+                m.IsEncrypted,
+                m.EncryptedBody,
+                m.DirMsg,
+            })
+            .FirstOrDefaultAsync();
+
+        if (latestIncoming == null)
+        {
+            return null;
+        }
+
+        string? preview = null;
+        if (latestIncoming.IsEncrypted && !string.IsNullOrEmpty(latestIncoming.EncryptedBody))
+        {
+            try
+            {
+                preview = _protector.Unprotect(latestIncoming.EncryptedBody);
+            }
+            catch
+            {
+                preview = null;
+            }
+        }
+        else
+        {
+            preview = latestIncoming.DirMsg;
+        }
+
+        if (!string.IsNullOrWhiteSpace(preview) && preview.Length > 120)
+        {
+            preview = preview[..120];
+        }
+
+        var senderName = await _context.NextAuthUsers
+            .AsNoTracking()
+            .Where(user => user.Id == latestIncoming.FromUserID)
+            .Select(user => user.Name)
+            .FirstOrDefaultAsync();
+
+        return new
+        {
+            messageId = latestIncoming.MessageID,
+            conversationId = latestIncoming.ConversationId,
+            senderName = string.IsNullOrWhiteSpace(senderName) ? "Someone" : senderName,
+            contentPreview = preview,
+            href = $"/messages?conversationId={latestIncoming.ConversationId}",
+            createdAt = latestIncoming.Sent,
+        };
     }
 }
 
