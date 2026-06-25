@@ -258,6 +258,7 @@ public class ImpressionController : ControllerBase
                     // Remove the reaction (toggle off)
                     _context.BlogImpressions.Remove(existingReaction);
                     await _context.SaveChangesAsync();
+                    await BroadcastReceivedReactionSummaryToOwners(request.TargetType, request.TargetId, request.UserId, includeSelfActions: true);
                     return Ok(new { message = "Reaction removed", removed = true });
                 }
                 else
@@ -273,6 +274,7 @@ public class ImpressionController : ControllerBase
 
                     _context.BlogImpressions.Add(newReaction);
                     await _context.SaveChangesAsync();
+                    await BroadcastReceivedReactionSummaryToOwners(request.TargetType, request.TargetId, request.UserId, includeSelfActions: true);
                     return Ok(new { message = "Reaction added", removed = false });
                 }
             }
@@ -404,6 +406,15 @@ public class ImpressionController : ControllerBase
             .Distinct()
             .ToListAsync();
         }
+        else if (targetType == TargetType.Blog)
+        {
+            ownerUserIds = await _context.Blogs
+                .AsNoTracking()
+                .Where(blog => blog.BlogID == targetId)
+                .Select(blog => blog.UserID)
+                .Distinct()
+                .ToListAsync();
+        }
         else
         {
             return;
@@ -477,8 +488,28 @@ public class ImpressionController : ControllerBase
             })
             .ToListAsync();
 
+        var blogReactions = await _context.BlogImpressions
+            .AsNoTracking()
+            .Join(
+                _context.Blogs.AsNoTracking(),
+                impression => impression.BlogId,
+                blog => blog.BlogID,
+                (impression, blog) => new { impression, blog })
+            .Where(pair => pair.blog.UserID == userId
+                && (includeSelfActions || pair.impression.UserId != userId)
+                && pair.impression.CreatedAt >= sinceUtc)
+            .Select(pair => new
+            {
+                pair.impression.UserId,
+                pair.impression.CreatedAt,
+                TargetType = TargetType.Blog,
+                TargetId = pair.impression.BlogId,
+            })
+            .ToListAsync();
+
         var reactions = listingReactions
             .Concat(artistReactions)
+            .Concat(blogReactions)
             .OrderByDescending(reaction => reaction.CreatedAt)
             .ToList();
 
@@ -489,15 +520,16 @@ public class ImpressionController : ControllerBase
             return (count, null);
         }
 
-        var reactorName = await _context.NextAuthUsers
+        var reactor = await _context.NextAuthUsers
             .AsNoTracking()
             .Where(user => user.Id == latest.UserId)
-            .Select(user => user.Name)
+            .Select(user => new { user.Name, user.Image })
             .FirstOrDefaultAsync();
 
         return (count, new
         {
-            reactorName = string.IsNullOrWhiteSpace(reactorName) ? "Someone" : reactorName,
+            reactorName = string.IsNullOrWhiteSpace(reactor?.Name) ? "Someone" : reactor.Name,
+            reactorImage = reactor?.Image,
             targetType = latest.TargetType.ToString(),
             targetId = latest.TargetId,
             href = await BuildReactionHref(latest.TargetType, latest.TargetId),
@@ -534,6 +566,20 @@ public class ImpressionController : ControllerBase
             if (!string.IsNullOrWhiteSpace(artistPath))
             {
                 return $"/artists/{artistPath}";
+            }
+        }
+
+        if (targetType == TargetType.Blog)
+        {
+            var blogPath = await _context.Blogs
+                .AsNoTracking()
+                .Where(blog => blog.BlogID == targetId)
+                .Select(blog => blog.Path)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(blogPath))
+            {
+                return $"/blogs/{blogPath}";
             }
         }
 

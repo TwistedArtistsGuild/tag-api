@@ -706,17 +706,18 @@ public class ConversationsController : ControllerBase
             preview = preview[..120];
         }
 
-        var senderName = await _context.NextAuthUsers
+        var sender = await _context.NextAuthUsers
             .AsNoTracking()
             .Where(user => user.Id == latestIncoming.FromUserID)
-            .Select(user => user.Name)
+            .Select(user => new { user.Name, user.Image })
             .FirstOrDefaultAsync();
 
         return new
         {
             messageId = latestIncoming.MessageID,
             conversationId = latestIncoming.ConversationId,
-            senderName = string.IsNullOrWhiteSpace(senderName) ? "Someone" : senderName,
+            senderName = string.IsNullOrWhiteSpace(sender?.Name) ? "Someone" : sender.Name,
+            senderImage = sender?.Image,
             contentPreview = preview,
             href = $"/messages?conversationId={latestIncoming.ConversationId}",
             createdAt = latestIncoming.Sent,

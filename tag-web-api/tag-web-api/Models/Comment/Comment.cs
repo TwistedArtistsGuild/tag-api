@@ -50,5 +50,6 @@ public enum CommentTargetType
     Artist = 1,
     Listing = 2,
     Blog = 3,
-    News = 4
+    News = 4,
+    User = 5
 }
