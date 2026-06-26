@@ -49,7 +49,7 @@ namespace TAGWEBAPI.Controllers
                     .ThenInclude(gi => gi.Video)
                 .ToListAsync();
 
-            return blogs;
+            return Ok(blogs.Select(MapBlogForApi));
         }
 
         [HttpGet("{id}")]
@@ -74,7 +74,7 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
 
-            return blog;
+            return Ok(MapBlogForApi(blog));
         }
 
         [HttpGet("path/{path}")]
@@ -99,7 +99,7 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
 
-            return blog;
+            return Ok(MapBlogForApi(blog));
         }
 
         private static string NormalizeResourceUrl(string? value)
@@ -741,6 +741,61 @@ namespace TAGWEBAPI.Controllers
         private bool BlogExists(int id)
         {
             return (_context.Blogs?.Any(e => e.BlogID == id)).GetValueOrDefault();
+        }
+
+        private static object MapBlogForApi(Blog blog)
+        {
+            return new
+            {
+                blog.BlogID,
+                Body = CoalescePlaintext(blog.Body_Plaintext, blog.Body),
+                BodyRichtext = blog.Body,
+                Byline = CoalescePlaintext(blog.Byline_Plaintext, blog.Byline),
+                BylineRichtext = blog.Byline,
+                blog.Created,
+                blog.Modified,
+                blog.Path,
+                Title = CoalescePlaintext(blog.Title_Plaintext, blog.Title),
+                TitleRichtext = blog.Title,
+                blog.UserID,
+                blog.GalleryID,
+                blog.CoverPicID,
+                blog.User,
+                blog.Gallery,
+                blog.CoverPic,
+            };
+        }
+
+        private static string? CoalescePlaintext(string? plaintext, string? richtext)
+        {
+            return !string.IsNullOrWhiteSpace(plaintext)
+                ? plaintext
+                : StripHtmlToPlaintext(richtext);
+        }
+
+        private static string? StripHtmlToPlaintext(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            var withoutScripts = Regex.Replace(value, "(?is)<(script|style)[^>]*>.*?</\\1>", " ");
+            var withBreaks = Regex.Replace(withoutScripts, "(?i)<br\\s*/?>", "\n");
+            var withBlockBreaks = Regex.Replace(withBreaks, "(?i)</(p|div|li|h[1-6]|tr|section|article|blockquote)>", "\n");
+            var noTags = Regex.Replace(withBlockBreaks, "(?is)<[^>]+>", " ");
+            var normalized = Regex.Replace(noTags, @"[ \t\r]+", " ");
+            normalized = Regex.Replace(normalized, @"\n\s*\n+", "\n");
+            var decoded = normalized
+                .Replace("&nbsp;", " ")
+                .Replace("&amp;", "&")
+                .Replace("&quot;", "\"")
+                .Replace("&#39;", "'")
+                .Replace("&lt;", "<")
+                .Replace("&gt;", ">");
+
+            var trimmed = decoded.Trim();
+            return trimmed.Length == 0 ? null : trimmed;
         }
 
         // Add a helper method to generate paths if needed

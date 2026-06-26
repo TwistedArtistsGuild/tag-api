@@ -34,7 +34,7 @@ namespace TAGWEBAPI.Controllers
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            return this.Ok(vendors);
+            return this.Ok(vendors.Select(MapVendorForApi));
         }
 
         [HttpGet("admin/unpublished")]
@@ -50,7 +50,7 @@ namespace TAGWEBAPI.Controllers
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            return this.Ok(vendors);
+            return this.Ok(vendors.Select(MapVendorForApi));
         }
 
         [HttpGet("{id}")]
@@ -63,7 +63,7 @@ namespace TAGWEBAPI.Controllers
                 return this.NotFound();
             }
 
-            return vendor;
+            return this.Ok(MapVendorForApi(vendor));
         }
 
         [HttpGet("byID/{id}")]
@@ -75,7 +75,7 @@ namespace TAGWEBAPI.Controllers
                 return this.NotFound();
             }
 
-            return vendor;
+            return this.Ok(MapVendorForApi(vendor));
         }
 
         [HttpGet("check-slug/{slug}")]
@@ -141,7 +141,7 @@ namespace TAGWEBAPI.Controllers
                 return this.NotFound();
             }
 
-            return vendor;
+            return this.Ok(MapVendorForApi(vendor));
         }
 
         [HttpPost("reserve-slug")]
@@ -440,6 +440,61 @@ namespace TAGWEBAPI.Controllers
                 .Select(u => u.Moderator)
                 .FirstOrDefaultAsync()
                 .ConfigureAwait(false);
+        }
+
+        private static object MapVendorForApi(Vendor vendor)
+        {
+            return new
+            {
+                vendor.VendorID,
+                CompanyName = CoalescePlaintext(vendor.CompanyName_Plaintext, vendor.CompanyName),
+                CompanyNameRichtext = vendor.CompanyName,
+                vendor.ContractExpires,
+                vendor.LinkToContract,
+                vendor.LinkToMSA,
+                vendor.MSA_Executed,
+                NotesOnContracts = CoalescePlaintext(vendor.NotesOnContracts_Plaintext, vendor.NotesOnContracts),
+                NotesOnContractsRichtext = vendor.NotesOnContracts,
+                NotesOnVendors = CoalescePlaintext(vendor.NotesOnVendors_Plaintext, vendor.NotesOnVendors),
+                NotesOnVendorsRichtext = vendor.NotesOnVendors,
+                vendor.POCEmail,
+                vendor.POCName,
+                vendor.POCPhone,
+                vendor.IsPublished,
+                vendor.IsModerationBlocked,
+            };
+        }
+
+        private static string? CoalescePlaintext(string? plaintext, string? richtext)
+        {
+            return !string.IsNullOrWhiteSpace(plaintext)
+                ? plaintext
+                : StripHtmlToPlaintext(richtext);
+        }
+
+        private static string? StripHtmlToPlaintext(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            var withoutScripts = Regex.Replace(value, "(?is)<(script|style)[^>]*>.*?</\\1>", " ");
+            var withBreaks = Regex.Replace(withoutScripts, "(?i)<br\\s*/?>", "\n");
+            var withBlockBreaks = Regex.Replace(withBreaks, "(?i)</(p|div|li|h[1-6]|tr|section|article|blockquote)>", "\n");
+            var noTags = Regex.Replace(withBlockBreaks, "(?is)<[^>]+>", " ");
+            var normalized = Regex.Replace(noTags, @"[ \t\r]+", " ");
+            normalized = Regex.Replace(normalized, @"\n\s*\n+", "\n");
+            var decoded = normalized
+                .Replace("&nbsp;", " ")
+                .Replace("&amp;", "&")
+                .Replace("&quot;", "\"")
+                .Replace("&#39;", "'")
+                .Replace("&lt;", "<")
+                .Replace("&gt;", ">");
+
+            var trimmed = decoded.Trim();
+            return trimmed.Length == 0 ? null : trimmed;
         }
     }
 }

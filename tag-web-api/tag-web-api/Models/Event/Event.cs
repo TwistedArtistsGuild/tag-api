@@ -18,6 +18,8 @@ public class Event
     [Required]
     public string Description { get; set; }
 
+    public string? Description_Plaintext { get; set; }
+
     public DateTime Doors { get; set; }
 
     public DateTime EndTime { get; set; }
@@ -28,6 +30,8 @@ public class Event
 
     public string? Note { get; set; }
 
+    public string? Note_Plaintext { get; set; }
+
     [Required]
     public string PointOfContact { get; set; }
 
@@ -35,6 +39,8 @@ public class Event
 
     [Required]
     public string Title { get; set; }
+
+    public string? Title_Plaintext { get; set; }
 
     public int VenueID { get; set; }
 

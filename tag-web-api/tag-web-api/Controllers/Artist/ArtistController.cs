@@ -57,7 +57,7 @@ public class ArtistController : ControllerBase
             }
         }
 
-        return artists;
+        return Ok(artists.Select(MapArtistForApi));
     }
 
     [HttpGet("admin/unpublished")]
@@ -76,7 +76,7 @@ public class ArtistController : ControllerBase
             .ToListAsync()
             .ConfigureAwait(false);
 
-        return Ok(artists);
+        return Ok(artists.Select(MapArtistForApi));
     }
 
     [HttpGet("byID/{id}")]
@@ -103,7 +103,7 @@ public class ArtistController : ControllerBase
             return NotFound();
         }
 
-        return artist;
+        return Ok(MapArtistForApi(artist));
     }
 
     [HttpGet("{slug}")]
@@ -128,7 +128,7 @@ public class ArtistController : ControllerBase
             return this.NotFound();
         }
 
-        return artist;
+        return Ok(MapArtistForApi(artist));
     }
 
     [HttpGet("check-slug/{slug}")]
@@ -344,11 +344,15 @@ public class ArtistController : ControllerBase
         {
             artist = new { 
                 artist.ArtistID,
-                artist.Title,
+                Title = CoalescePlaintext(artist.Title_Plaintext, artist.Title),
+                TitleRichtext = artist.Title,
                 artist.Path,
-                artist.Byline,
-                artist.Statement,
-                artist.Biography,
+                Byline = CoalescePlaintext(artist.Byline_Plaintext, artist.Byline),
+                BylineRichtext = artist.Byline,
+                Statement = CoalescePlaintext(artist.Statement_Plaintext, artist.Statement),
+                StatementRichtext = artist.Statement,
+                Biography = CoalescePlaintext(artist.Biography_Plaintext, artist.Biography),
+                BiographyRichtext = artist.Biography,
                 artist.SEOTags,
                 artist.Applied,
                 artist.Since,
@@ -356,7 +360,7 @@ public class ArtistController : ControllerBase
             },
             profilePic = artist.ProfilePic,
             coverPic = artist.CoverPic,
-            listings,
+            listings = listings.Select(MapListingSummaryForApi).ToList(),
             contactInfo = new
             {
                 addresses,
@@ -364,6 +368,94 @@ public class ArtistController : ControllerBase
                 links = externalLinks
             }
         };
+    }
+
+    private static object MapArtistForApi(Artist artist)
+    {
+        return new
+        {
+            artist.ArtistID,
+            artist.Applied,
+            artist.Country,
+            artist.StateOrProvince,
+            artist.BusinessEntityType,
+            artist.IsFormallyIncorporated,
+            Byline = CoalescePlaintext(artist.Byline_Plaintext, artist.Byline),
+            BylineRichtext = artist.Byline,
+            artist.IncorporatedYear,
+            artist.IsPublished,
+            artist.IsModerationBlocked,
+            artist.Path,
+            artist.SEOTags,
+            artist.Since,
+            Statement = CoalescePlaintext(artist.Statement_Plaintext, artist.Statement),
+            StatementRichtext = artist.Statement,
+            Title = CoalescePlaintext(artist.Title_Plaintext, artist.Title),
+            TitleRichtext = artist.Title,
+            Biography = CoalescePlaintext(artist.Biography_Plaintext, artist.Biography),
+            BiographyRichtext = artist.Biography,
+            artist.CoverPicID,
+            artist.CoverPic,
+            artist.ProfilePicID,
+            artist.ProfilePic,
+            artist.GalleryID,
+            artist.Gallery,
+            Listings = artist.Listings?.Select(MapListingSummaryForApi).ToList(),
+        };
+    }
+
+    private static object MapListingSummaryForApi(Listing listing)
+    {
+        return new
+        {
+            listing.ListingID,
+            Title = CoalescePlaintext(listing.Title_Plaintext, listing.Title),
+            TitleRichtext = listing.Title,
+            Description = CoalescePlaintext(listing.Description_Plaintext, listing.Description),
+            DescriptionRichtext = listing.Description,
+            listing.Path,
+            listing.Price,
+            listing.ArtCategoryID,
+            listing.ArtCategory,
+            listing.ArtistID,
+            listing.CoverPicID,
+            listing.CoverPic,
+            listing.IsPublished,
+            listing.IsModerationBlocked,
+            listing.Created,
+        };
+    }
+
+    private static string? CoalescePlaintext(string? plaintext, string? richtext)
+    {
+        return !string.IsNullOrWhiteSpace(plaintext)
+            ? plaintext
+            : StripHtmlToPlaintext(richtext);
+    }
+
+    private static string? StripHtmlToPlaintext(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        var withoutScripts = Regex.Replace(value, "(?is)<(script|style)[^>]*>.*?</\\1>", " ");
+        var withBreaks = Regex.Replace(withoutScripts, "(?i)<br\\s*/?>", "\n");
+        var withBlockBreaks = Regex.Replace(withBreaks, "(?i)</(p|div|li|h[1-6]|tr|section|article|blockquote)>", "\n");
+        var noTags = Regex.Replace(withBlockBreaks, "(?is)<[^>]+>", " ");
+        var normalized = Regex.Replace(noTags, @"[ \t\r]+", " ");
+        normalized = Regex.Replace(normalized, @"\n\s*\n+", "\n");
+        var decoded = normalized
+            .Replace("&nbsp;", " ")
+            .Replace("&amp;", "&")
+            .Replace("&quot;", "\"")
+            .Replace("&#39;", "'")
+            .Replace("&lt;", "<")
+            .Replace("&gt;", ">");
+
+        var trimmed = decoded.Trim();
+        return trimmed.Length == 0 ? null : trimmed;
     }
 
     private static string NormalizeSlug(string slug)
