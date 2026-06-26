@@ -34,7 +34,7 @@ namespace TAGWEBAPI.Controllers
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            return this.Ok(venues);
+            return this.Ok(venues.Select(MapVenueForApi));
         }
 
         [HttpGet("admin/unpublished")]
@@ -50,7 +50,7 @@ namespace TAGWEBAPI.Controllers
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            return this.Ok(venues);
+            return this.Ok(venues.Select(MapVenueForApi));
         }
 
         [HttpGet("{id}")]
@@ -63,7 +63,7 @@ namespace TAGWEBAPI.Controllers
                 return this.NotFound();
             }
 
-            return venue;
+            return this.Ok(MapVenueForApi(venue));
         }
 
         [HttpGet("byID/{id}")]
@@ -75,7 +75,7 @@ namespace TAGWEBAPI.Controllers
                 return this.NotFound();
             }
 
-            return venue;
+            return this.Ok(MapVenueForApi(venue));
         }
 
         [HttpGet("check-slug/{slug}")]
@@ -141,7 +141,7 @@ namespace TAGWEBAPI.Controllers
                 return this.NotFound();
             }
 
-            return venue;
+            return this.Ok(MapVenueForApi(venue));
         }
 
         [HttpPost("reserve-slug")]
@@ -452,6 +452,56 @@ namespace TAGWEBAPI.Controllers
                 .Select(u => u.Moderator)
                 .FirstOrDefaultAsync()
                 .ConfigureAwait(false);
+        }
+
+        private static object MapVenueForApi(Venue venue)
+        {
+            return new
+            {
+                venue.VenueID,
+                Name = CoalescePlaintext(venue.Name_Plaintext, venue.Name),
+                NameRichtext = venue.Name,
+                venue.AddressID,
+                venue.ExternalLinkID,
+                venue.PhoneContactID,
+                venue.IsPublished,
+                venue.IsModerationBlocked,
+                venue.Address,
+                venue.ExternalLink,
+                venue.PhoneContact,
+            };
+        }
+
+        private static string? CoalescePlaintext(string? plaintext, string? richtext)
+        {
+            return !string.IsNullOrWhiteSpace(plaintext)
+                ? plaintext
+                : StripHtmlToPlaintext(richtext);
+        }
+
+        private static string? StripHtmlToPlaintext(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            var withoutScripts = Regex.Replace(value, "(?is)<(script|style)[^>]*>.*?</\\1>", " ");
+            var withBreaks = Regex.Replace(withoutScripts, "(?i)<br\\s*/?>", "\n");
+            var withBlockBreaks = Regex.Replace(withBreaks, "(?i)</(p|div|li|h[1-6]|tr|section|article|blockquote)>", "\n");
+            var noTags = Regex.Replace(withBlockBreaks, "(?is)<[^>]+>", " ");
+            var normalized = Regex.Replace(noTags, @"[ \t\r]+", " ");
+            normalized = Regex.Replace(normalized, @"\n\s*\n+", "\n");
+            var decoded = normalized
+                .Replace("&nbsp;", " ")
+                .Replace("&amp;", "&")
+                .Replace("&quot;", "\"")
+                .Replace("&#39;", "'")
+                .Replace("&lt;", "<")
+                .Replace("&gt;", ">");
+
+            var trimmed = decoded.Trim();
+            return trimmed.Length == 0 ? null : trimmed;
         }
     }
 }

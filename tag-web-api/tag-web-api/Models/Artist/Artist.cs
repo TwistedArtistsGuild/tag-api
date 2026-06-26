@@ -20,6 +20,8 @@ public class Artist
 
     public string? Biography { get; set; }
 
+    public string? Biography_Plaintext { get; set; }
+
     public string? Country { get; set; }
 
     public string? StateOrProvince { get; set; }
@@ -29,6 +31,8 @@ public class Artist
     public bool? IsFormallyIncorporated { get; set; }
 
     public string? Byline { get; set; }
+
+    public string? Byline_Plaintext { get; set; }
 
     public int? IncorporatedYear { get; set; }
 
@@ -45,8 +49,12 @@ public class Artist
 
     public string? Statement { get; set; }
 
+    public string? Statement_Plaintext { get; set; }
+
     [Required]
     public string Title { get; set; }
+
+    public string? Title_Plaintext { get; set; }
 
     [ForeignKey("Picture")]
     public int? CoverPicID { get; set; }

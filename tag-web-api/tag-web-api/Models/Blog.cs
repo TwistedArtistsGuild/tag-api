@@ -21,6 +21,8 @@ public class Blog
     [Required]
     public string Byline { get; set; }
 
+    public string? Byline_Plaintext { get; set; }
+
     public DateTime Created { get; set; }
 
     public DateTime? Modified { get; set; }
@@ -30,6 +32,8 @@ public class Blog
 
     [Required]
     public string Title { get; set; }
+
+    public string? Title_Plaintext { get; set; }
 
     [ForeignKey("User")]
     public int UserID { get; set; }

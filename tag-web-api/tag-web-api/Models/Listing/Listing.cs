@@ -15,7 +15,11 @@ public class Listing
 
     public string? Title { get; set; }
 
+    public string? Title_Plaintext { get; set; }
+
     public string? Description { get; set; }
+
+    public string? Description_Plaintext { get; set; }
 
     public string? CatalogueID { get; set; }
 

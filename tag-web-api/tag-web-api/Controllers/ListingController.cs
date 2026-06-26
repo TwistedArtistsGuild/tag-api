@@ -58,7 +58,7 @@ namespace TAGWEBAPI.Controllers
             }
 
             await HydrateListingArtistsAsync(listings).ConfigureAwait(false);
-            return listings;
+            return Ok(listings.Select(MapListingForApi));
         }
 
         [HttpGet("admin/unpublished")]
@@ -81,7 +81,7 @@ namespace TAGWEBAPI.Controllers
 
             await HydrateListingArtistsAsync(listings).ConfigureAwait(false);
 
-            return Ok(listings);
+            return Ok(listings.Select(MapListingForApi));
         }
 
         // Mirror frontend convention: byID route to fetch listing by numeric ID
@@ -112,7 +112,7 @@ namespace TAGWEBAPI.Controllers
 
             await HydrateListingArtistAsync(listing).ConfigureAwait(false);
 
-            return listing;
+            return Ok(MapListingForApi(listing));
         }
 
         [HttpGet("artist/{artistPath}/listing/{listingPath}")]
@@ -150,7 +150,7 @@ namespace TAGWEBAPI.Controllers
 
             await HydrateListingArtistAsync(listing).ConfigureAwait(false);
 
-            return listing;
+            return Ok(MapListingForApi(listing));
         }
 
         [HttpGet("artist/{id}")]
@@ -189,7 +189,7 @@ namespace TAGWEBAPI.Controllers
 
             await HydrateListingArtistsAsync(listings).ConfigureAwait(false);
 
-            return Ok(listings);
+            return Ok(listings.Select(MapListingForApi));
         }
 
         [HttpPut("byID/{id}")]
@@ -802,6 +802,91 @@ namespace TAGWEBAPI.Controllers
                 .ConfigureAwait(false);
 
             return Ok(refreshedItems);
+        }
+
+        private static object MapListingForApi(Listing listing)
+        {
+            return new
+            {
+                listing.ListingID,
+                Title = CoalescePlaintext(listing.Title_Plaintext, listing.Title),
+                TitleRichtext = listing.Title,
+                Description = CoalescePlaintext(listing.Description_Plaintext, listing.Description),
+                DescriptionRichtext = listing.Description,
+                listing.CatalogueID,
+                listing.CommissionInquiryWelcome,
+                listing.Created,
+                listing.Credits,
+                listing.Culture,
+                listing.Date,
+                listing.Department,
+                listing.Locale,
+                listing.Locus,
+                listing.Medium,
+                listing.Period,
+                listing.Price,
+                listing.Repository,
+                listing.Rights,
+                listing.TaxJurisdiction,
+                listing.Work_BeginDate,
+                listing.Work_CompletionDate,
+                listing.IsPublished,
+                listing.IsModerationBlocked,
+                listing.Path,
+                listing.ArtCategoryID,
+                listing.ArtCategory,
+                listing.ArtistID,
+                Artist = listing.Artist == null
+                    ? null
+                    : new
+                    {
+                        listing.Artist.ArtistID,
+                        Title = CoalescePlaintext(listing.Artist.Title_Plaintext, listing.Artist.Title),
+                        TitleRichtext = listing.Artist.Title,
+                        Byline = CoalescePlaintext(listing.Artist.Byline_Plaintext, listing.Artist.Byline),
+                        BylineRichtext = listing.Artist.Byline,
+                        listing.Artist.Path,
+                        listing.Artist.ProfilePicID,
+                        listing.Artist.ProfilePic,
+                    },
+                listing.GalleryID,
+                listing.CoverPicID,
+                listing.CoverPic,
+                listing.Gallery,
+                listing.ListingSalesItems,
+            };
+        }
+
+        private static string? CoalescePlaintext(string? plaintext, string? richtext)
+        {
+            return !string.IsNullOrWhiteSpace(plaintext)
+                ? plaintext
+                : StripHtmlToPlaintext(richtext);
+        }
+
+        private static string? StripHtmlToPlaintext(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            var withoutScripts = Regex.Replace(value, "(?is)<(script|style)[^>]*>.*?</\\1>", " ");
+            var withBreaks = Regex.Replace(withoutScripts, "(?i)<br\\s*/?>", "\n");
+            var withBlockBreaks = Regex.Replace(withBreaks, "(?i)</(p|div|li|h[1-6]|tr|section|article|blockquote)>", "\n");
+            var noTags = Regex.Replace(withBlockBreaks, "(?is)<[^>]+>", " ");
+            var normalized = Regex.Replace(noTags, @"[ \t\r]+", " ");
+            normalized = Regex.Replace(normalized, @"\n\s*\n+", "\n");
+            var decoded = normalized
+                .Replace("&nbsp;", " ")
+                .Replace("&amp;", "&")
+                .Replace("&quot;", "\"")
+                .Replace("&#39;", "'")
+                .Replace("&lt;", "<")
+                .Replace("&gt;", ">");
+
+            var trimmed = decoded.Trim();
+            return trimmed.Length == 0 ? null : trimmed;
         }
     }
 }

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 
@@ -32,10 +33,12 @@ namespace TAGWEBAPI.Controllers
             {
                 return NotFound();
             }
-            return await _context.Events
+            var events = await _context.Events
                 .Include(e => e.Artist)
                 .Include(e => e.Venue)
                 .ToListAsync();
+
+            return Ok(events.Select(MapEventForApi));
         }
 
         [HttpGet("{id}")]
@@ -55,7 +58,7 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
 
-            return @event;
+            return Ok(MapEventForApi(@event));
         }
 
         [HttpGet("path/{path}")]
@@ -75,7 +78,7 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
 
-            return @event;
+            return Ok(MapEventForApi(@event));
         }
 
         [HttpPut("{id}")]
@@ -252,6 +255,72 @@ namespace TAGWEBAPI.Controllers
         private bool EventExists(int id)
         {
             return (_context.Events?.Any(e => e.EventID == id)).GetValueOrDefault();
+        }
+
+        private static object MapEventForApi(Event @event)
+        {
+            return new
+            {
+                @event.EventID,
+                @event.ArtistID,
+                @event.Cost,
+                Description = CoalescePlaintext(@event.Description_Plaintext, @event.Description),
+                DescriptionRichtext = @event.Description,
+                @event.Doors,
+                @event.EndTime,
+                @event.MaxOccupancy,
+                @event.MinimumAge,
+                Note = CoalescePlaintext(@event.Note_Plaintext, @event.Note),
+                NoteRichtext = @event.Note,
+                @event.PointOfContact,
+                @event.StartTime,
+                Title = CoalescePlaintext(@event.Title_Plaintext, @event.Title),
+                TitleRichtext = @event.Title,
+                @event.VenueID,
+                @event.Path,
+                @event.EventCategoryID,
+                @event.GalleryID,
+                @event.CoverPicID,
+                @event.ProfilePicID,
+                @event.Artist,
+                @event.EventCategory,
+                @event.Venue,
+                @event.Gallery,
+                @event.CoverPic,
+                @event.ProfilePic,
+            };
+        }
+
+        private static string? CoalescePlaintext(string? plaintext, string? richtext)
+        {
+            return !string.IsNullOrWhiteSpace(plaintext)
+                ? plaintext
+                : StripHtmlToPlaintext(richtext);
+        }
+
+        private static string? StripHtmlToPlaintext(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            var withoutScripts = Regex.Replace(value, "(?is)<(script|style)[^>]*>.*?</\\1>", " ");
+            var withBreaks = Regex.Replace(withoutScripts, "(?i)<br\\s*/?>", "\n");
+            var withBlockBreaks = Regex.Replace(withBreaks, "(?i)</(p|div|li|h[1-6]|tr|section|article|blockquote)>", "\n");
+            var noTags = Regex.Replace(withBlockBreaks, "(?is)<[^>]+>", " ");
+            var normalized = Regex.Replace(noTags, @"[ \t\r]+", " ");
+            normalized = Regex.Replace(normalized, @"\n\s*\n+", "\n");
+            var decoded = normalized
+                .Replace("&nbsp;", " ")
+                .Replace("&amp;", "&")
+                .Replace("&quot;", "\"")
+                .Replace("&#39;", "'")
+                .Replace("&lt;", "<")
+                .Replace("&gt;", ">");
+
+            var trimmed = decoded.Trim();
+            return trimmed.Length == 0 ? null : trimmed;
         }
     }
 

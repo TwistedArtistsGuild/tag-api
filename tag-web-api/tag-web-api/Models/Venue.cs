@@ -14,6 +14,8 @@ public class Venue
 
     public string Name { get; set; }
 
+    public string? Name_Plaintext { get; set; }
+
     [ForeignKey("Address")]
     public int AddressID { get; set; }
 
