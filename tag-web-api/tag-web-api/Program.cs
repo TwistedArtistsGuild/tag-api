@@ -59,7 +59,10 @@ else
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
-        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
+    {
+        // THIS PREVENTS OBJECT CYCLE CRASHES GLOBALLY
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 Console.WriteLine(textprefix + "Controllers added to the service container (CamelCase naming policy configured).");
 
 builder.Services.AddDbContext<TAGDBContext>(options =>

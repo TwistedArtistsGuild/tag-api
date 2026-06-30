@@ -36,7 +36,7 @@ public class Address
     public string? Country { get; set; }
 
     [StringLength(100)]
-    public string Region { get; set; }
+    public string? Region { get; set; }
 
     [StringLength(1000)]
     public string? OperationHours { get; set; }

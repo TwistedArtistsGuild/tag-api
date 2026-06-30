@@ -124,6 +124,60 @@ public sealed class ModernTreasuryLedgerService : IModernTreasuryLedgerService
         return this.PostStripeLedgerAsync(normalized, cancellationToken);
     }
 
+    public async Task<bool> ExecuteArtistACHPayoutAsync(int orderId)
+    {
+        // 1. Normally you fetch Order details here from DB using DI to get the exact Amount & Artist ID routing numbers.
+        // For demonstration, we assume we want to push exactly $50.00 (5000 cents) out as a simulated payout.
+
+        long payoutAmountCents = 5000;
+        string artistMTAccountId = "ext_account_simulated_xyz"; // This is their Modern Treasury internal Account ID stored in DB during onboarding
+
+        if (this.options.DryRun || !this.options.Enabled)
+        {
+            this.logger.LogInformation("Modern Treasury Payout DryRun. Would have pushed {Amount} to Artist for Order {OrderId}", payoutAmountCents, orderId);
+            return true;
+        }
+
+        var payload = new
+        {
+            type = "ach",
+            amount = payoutAmountCents,
+            direction = "credit",
+            currency = "USD",
+            originating_account_id = "INTERNAL_TAG_MASTER_ACCOUNT_ID", // Your operating account inside MT
+            receiving_account_id = artistMTAccountId,
+            subtype = "standard",
+            description = $"TAG Order #{orderId} Payout",
+            metadata = new Dictionary<string, string>
+            {
+                ["order_id"] = orderId.ToString()
+            }
+        };
+
+        var requestPath = "/api/payment_orders";
+        this.httpClient.BaseAddress = new Uri(this.options.BaseUrl);
+        this.httpClient.DefaultRequestHeaders.Authorization = BuildBasicAuth(this.options.OrganizationId, this.options.ApiKey);
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json"),
+        };
+        message.Headers.Add("Idempotency-Key", $"payout_order_{orderId}");
+
+        using var providerResponse = await this.httpClient.SendAsync(message, CancellationToken.None).ConfigureAwait(false);
+        var providerBody = await providerResponse.Content.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
+
+        if (!providerResponse.IsSuccessStatusCode)
+        {
+            this.logger.LogError("Modern Treasury ACH request failed. StatusCode: {StatusCode}. Body: {Body}",
+                providerResponse.StatusCode, providerBody);
+            return false;
+        }
+
+        this.logger.LogInformation("Successfully initiated ACH transfer for Order {OrderId}", orderId);
+        return true;
+    }
+
     private static void ValidateRequest(StripeLedgerPrototypeRequest request)
     {
         if (!AllowedPrototypeActions.Contains(request.PrototypeAction))
