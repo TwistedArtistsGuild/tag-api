@@ -36,7 +36,7 @@ public class AddressConfiguration : IEntityTypeConfiguration<Address>
             .HasMaxLength(255);
 
         builder.Property(a => a.Region).IsRequired(false)
-            .HasMaxLength(50);
+            .HasMaxLength(100);
 
         builder.Property(a => a.State)
             .HasMaxLength(20);

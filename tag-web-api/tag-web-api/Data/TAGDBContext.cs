@@ -156,6 +156,13 @@ namespace TAGWEBAPI.Data
 
         public DbSet<MotionVote> MotionVotes { get; set; }
 
+        public DbSet<Cart> Carts { get; set; }
+
+        public DbSet<CartItem> CartItems { get; set; }
+
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -208,6 +215,8 @@ namespace TAGWEBAPI.Data
             modelBuilder.Entity<MessageImpression>().HasKey(mi => mi.Id);
             modelBuilder.Entity<Motion>().HasKey(m => m.Id);
             modelBuilder.Entity<MotionVote>().HasKey(v => v.Id);
+            modelBuilder.Entity<Cart>().HasKey(c => c.Id);
+            modelBuilder.Entity<CartItem>().HasKey(ci => ci.Id);
         }
     }
 }
