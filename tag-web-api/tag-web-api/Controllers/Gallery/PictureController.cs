@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using System;
@@ -138,6 +139,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("{id}/credits")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<MediaCreditDto>>> PutPictureCredits(int id, [FromBody] MediaCreditsUpsertRequest request)
         {
             if (!this.PictureExists(id))
@@ -194,6 +196,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("video/{id}/credits")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<MediaCreditDto>>> PutVideoCredits(int id, [FromBody] MediaCreditsUpsertRequest request)
         {
             if (!this.context.Set<Video>().Any(video => video.VideoID == id))
@@ -239,6 +242,7 @@ namespace TAGWEBAPI.Controllers
 
         // POST: api/Picture
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<Picture>> PostPicture(Picture picture)
         {
             var normalizedUrl = NormalizeUrl(picture.NormalizedURL ?? picture.URL);
@@ -282,6 +286,7 @@ namespace TAGWEBAPI.Controllers
 
         // PUT: api/Picture/5
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> PutPicture(int id, Picture picture)
         {
             if (id != picture.PictureID)
@@ -312,6 +317,7 @@ namespace TAGWEBAPI.Controllers
 
         // DELETE: api/Picture/5
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> DeletePicture(int id)
         {
             var picture = await this.context.Set<Picture>().FindAsync(id).ConfigureAwait(false);

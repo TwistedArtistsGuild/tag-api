@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using TAGWEBAPI.Data;
@@ -8,6 +9,7 @@ namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ContestController : ControllerBase
 {
     private readonly TAGDBContext _context;
@@ -34,6 +36,7 @@ public class ContestController : ControllerBase
 
     // Fetch Active Contests
     [HttpGet("active")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Contest>>> GetActiveContests()
     {
         return await _context.Contests
@@ -44,6 +47,7 @@ public class ContestController : ControllerBase
 
     // Fetch Archive Contests
     [HttpGet("archive")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Contest>>> GetArchiveContests()
     {
         return await _context.Contests
@@ -54,6 +58,7 @@ public class ContestController : ControllerBase
 
     // Fetch Contest by ID with participating listings
     [HttpGet("slug/{slug}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetContestDetail(string slug)
     {
         var contest = await _context.Contests

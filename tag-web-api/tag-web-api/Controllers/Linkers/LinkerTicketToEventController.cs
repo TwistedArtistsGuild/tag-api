@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class Linker_TicketToEventController : ControllerBase
 {
     private readonly TAGDBContext context;
@@ -21,6 +23,7 @@ public class Linker_TicketToEventController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Linker_TicketToEvent>>> Get()
     {
         return await this.context.Set<Linker_TicketToEvent>().ToListAsync().ConfigureAwait(false);

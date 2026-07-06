@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers
 
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class StaffRoleController : ControllerBase
     {
         private readonly TAGDBContext context;
@@ -21,12 +23,14 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<StaffRole>>> GetStaffRoles()
         {
             return await this.context.Set<StaffRole>().ToListAsync().ConfigureAwait(false);
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<StaffRole>> GetStaffRole(int id)
         {
             var staffRole = await this.context.Set<StaffRole>().FindAsync(id).ConfigureAwait(false);

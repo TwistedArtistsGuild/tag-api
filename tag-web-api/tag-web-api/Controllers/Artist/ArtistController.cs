@@ -16,6 +16,7 @@ using TAGWEBAPI.Models;
 using System.IO;
 using System.Text.Json;
 using System.Globalization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TAGWEBAPI.Controllers;
 
@@ -466,6 +467,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize]
     public async Task<ActionResult<Artist>> Create(Artist artist)
     {
         if (_context.Artists == null)
@@ -517,6 +519,7 @@ public class ArtistController : ControllerBase
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Authorize]
     public async Task<ActionResult<ArtistSlugReservationResponse>> ReserveArtistSlug([FromBody] ArtistSlugReservationRequest request)
     {
         if (!ModelState.IsValid)
@@ -595,6 +598,7 @@ public class ArtistController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Authorize]
     public async Task<ActionResult<ArtistSlugReservationResponse>> UpdateArtistSlug(int id, [FromBody] ArtistSlugUpdateRequest request)
     {
         if (!ModelState.IsValid)
@@ -668,6 +672,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPut("byID/{id}")]
+    [Authorize]
     public async Task<IActionResult> UpdateByID(int id)
     {
         if (_context.Artists == null)
@@ -799,6 +804,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPut("{slug}")]
+    [Authorize]
     public async Task<IActionResult> Update(string slug)
     {
         if (_context.Artists == null)
@@ -930,6 +936,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
         if (_context.Artists == null)
@@ -1110,6 +1117,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPost("{id}/gallery/video")]
+    [Authorize]
     public async Task<ActionResult<GalleryItem>> PostArtistGalleryVideo(int id, [FromBody] BlogVideoUpsertRequest request)
     {
         var artist = await _context.Artists
@@ -1208,6 +1216,7 @@ public class ArtistController : ControllerBase
     }
 
     [HttpPut("{id}/gallery/order")]
+    [Authorize]
     public async Task<ActionResult<IEnumerable<GalleryItem>>> PutArtistGalleryOrder(int id, [FromBody] BlogGalleryOrderRequest request)
     {
         var artist = await _context.Artists

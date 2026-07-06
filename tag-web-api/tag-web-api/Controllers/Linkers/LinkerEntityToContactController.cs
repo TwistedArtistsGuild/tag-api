@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers.Contact
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -48,6 +49,7 @@ namespace TAGWEBAPI.Controllers.Contact
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<Linker_EntityToContact>> PostLink(LinkerCreateRequest request)
         {
             var contact = await this.context.Set<Contact>()
@@ -84,6 +86,7 @@ namespace TAGWEBAPI.Controllers.Contact
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> PutLink(int id, Linker_EntityToContact link)
         {
             if (id != link.Linker_EntityToContactID)
@@ -132,6 +135,7 @@ namespace TAGWEBAPI.Controllers.Contact
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> DeleteLink(int id)
         {
             var link = await this.context.Set<Linker_EntityToContact>().FindAsync(id).ConfigureAwait(false);

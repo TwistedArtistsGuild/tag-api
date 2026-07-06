@@ -14,6 +14,7 @@ namespace TAGWEBAPI.Controllers;
 //[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ContentPreferenceController : ControllerBase
 {
     private readonly TAGDBContext context;

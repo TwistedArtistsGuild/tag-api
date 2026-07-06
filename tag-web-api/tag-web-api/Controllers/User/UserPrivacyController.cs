@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -70,6 +71,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<UserPrivacy>> PostUserPrivacy(UserPrivacy userPrivacy, [FromQuery] int viewerUserId)
         {
             ArgumentNullException.ThrowIfNull(userPrivacy);
@@ -86,6 +88,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> PutUserPrivacy(int id, UserPrivacy userPrivacy, [FromQuery] int viewerUserId)
         {
             ArgumentNullException.ThrowIfNull(userPrivacy);
@@ -136,6 +139,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> DeleteUserPrivacy(int id, [FromQuery] int viewerUserId)
         {
             var userPrivacy = await this.context.Set<UserPrivacy>().FindAsync(id).ConfigureAwait(false);

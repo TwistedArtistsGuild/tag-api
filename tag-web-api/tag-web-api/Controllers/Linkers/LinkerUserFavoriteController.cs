@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers
 
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class Linker_UserFavoriteController : ControllerBase
     {
         private readonly TAGDBContext context;
@@ -22,6 +24,7 @@ namespace TAGWEBAPI.Controllers
 
         // GET: api/Linker_UserFavorite
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Linker_UserFavorite>>> GetLinker_UserFavorites()
         {
             return await this.context.Set<Linker_UserFavorite>().ToListAsync().ConfigureAwait(false);
@@ -29,6 +32,7 @@ namespace TAGWEBAPI.Controllers
 
         // GET: api/Linker_UserFavorite/5
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Linker_UserFavorite>> GetLinker_UserFavorite(int id)
         {
             var linker_UserFavorite = await this.context.Set<Linker_UserFavorite>().FindAsync(id).ConfigureAwait(false);

@@ -1,14 +1,16 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using TAGWEBAPI.Data;
-using TAGWEBAPI.Models;
 using TAGWEBAPI.Hubs;
+using TAGWEBAPI.Models;
 
 namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CommentsController : ControllerBase
 {
     private readonly TAGDBContext _context;
@@ -26,6 +28,7 @@ public class CommentsController : ControllerBase
     /// Get comments for a specific target (Artist, Listing, Blog, News)
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<CommentsResponse>> GetComments(
         [FromQuery] CommentTargetType targetType,
         [FromQuery] int targetId,
@@ -79,6 +82,7 @@ public class CommentsController : ControllerBase
     /// Get replies for a specific comment
     /// </summary>
     [HttpGet("{commentId}/replies")]
+    [AllowAnonymous]
     public async Task<ActionResult<CommentsResponse>> GetReplies(
         long commentId,
         [FromQuery] int page = 1,
@@ -307,6 +311,7 @@ public class CommentsController : ControllerBase
     /// Get comment count for a specific target
     /// </summary>
     [HttpGet("count")]
+    [AllowAnonymous]
     public async Task<ActionResult<int>> GetCommentCount(
         [FromQuery] CommentTargetType targetType,
         [FromQuery] int targetId)

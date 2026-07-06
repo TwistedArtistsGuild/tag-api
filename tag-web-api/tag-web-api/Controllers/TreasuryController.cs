@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using TAGWEBAPI.Integrations.ModernTreasury;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/treasury")]
+[Authorize]
 public sealed class TreasuryController : ControllerBase
 {
     private readonly IModernTreasuryLedgerService modernTreasuryLedgerService;

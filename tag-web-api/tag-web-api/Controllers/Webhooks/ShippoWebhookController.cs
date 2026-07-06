@@ -1,14 +1,16 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TAGWEBAPI.Data;
-using TAGWEBAPI.Integrations.ModernTreasury;
 using System.Text.Json;
 using System.Threading.Tasks;
+using TAGWEBAPI.Data;
+using TAGWEBAPI.Integrations.ModernTreasury;
 
 namespace TAGWEBAPI.Controllers.Webhooks
 {
     [ApiController]
     [Route("api/webhooks/shippo")]
+    [Authorize]
     public class ShippoWebhookController : ControllerBase
     {
         private readonly TAGDBContext _context;

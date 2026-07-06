@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TAGWEBAPI.Data;
@@ -39,6 +40,7 @@ public class FormsMetadataController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize]
     public async Task<ActionResult<Forms_Metadata>> Create(Forms_Metadata forms_Metadata)
     {
         this.context.Set<Forms_Metadata>().Add(forms_Metadata);
@@ -47,6 +49,7 @@ public class FormsMetadataController : ControllerBase
     }
 
     [HttpPut("byID/{id}")]
+    [Authorize]
     public async Task<IActionResult> Update(int id, Forms_Metadata forms_Metadata)
     {
         if (id != forms_Metadata.Forms_MetadataID)
@@ -76,6 +79,7 @@ public class FormsMetadataController : ControllerBase
     }
 
     [HttpDelete("byID/{id}")]
+    [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
         var forms_Metadata = await this.context.Set<Forms_Metadata>().FindAsync(id).ConfigureAwait(false);

@@ -1,14 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using TAGWEBAPI.Data;
-using TAGWEBAPI.Models;
 using TAGWEBAPI.Hubs;
+using TAGWEBAPI.Models;
 
 namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ImpressionController : ControllerBase
 {
     private readonly TAGDBContext _context;
@@ -29,6 +31,7 @@ public class ImpressionController : ControllerBase
     /// Gets all primary impressions with counts for a specific target
     /// </summary>
     [HttpGet("primary")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<PrimaryImpressionDto>>> GetPrimaryImpressions(
         [FromQuery] TargetType targetType,
         [FromQuery] int targetId)
@@ -102,6 +105,7 @@ public class ImpressionController : ControllerBase
     /// Gets received reaction totals for the current user across owned artists/listings.
     /// </summary>
     [HttpGet("received-summary")]
+    [AllowAnonymous]
     public async Task<ActionResult> GetReceivedSummary(
         [FromQuery] int userId,
         [FromQuery] int windowMinutes = 60,
