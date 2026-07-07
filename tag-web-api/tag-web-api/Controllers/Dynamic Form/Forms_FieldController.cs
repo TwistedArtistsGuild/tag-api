@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -39,6 +40,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<Forms_Field>> Create(Forms_Field forms_field)
         {
             this.context.Set<Forms_Field>().Add(forms_field);
@@ -47,6 +49,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Update(int id, Forms_Field forms_field)
         {
             if (id != forms_field.Forms_FieldID)
@@ -76,6 +79,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
             var forms_field = await this.context.Set<Forms_Field>().FindAsync(id).ConfigureAwait(false);

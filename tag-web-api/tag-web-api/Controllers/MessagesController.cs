@@ -1,22 +1,24 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR; // Add this
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.SignalR; // Add this
-using TAGWEBAPI.Hubs; // Add this
-using System.IO;
 using System;
-using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using TAGWEBAPI.Data;
+using TAGWEBAPI.Hubs; // Add this
 using TAGWEBAPI.Models;
 
 namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class MessagesController : ControllerBase
 {
     private readonly TAGDBContext _context;

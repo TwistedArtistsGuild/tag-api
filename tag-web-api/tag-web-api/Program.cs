@@ -2,6 +2,9 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.DataProtection;
@@ -10,6 +13,7 @@ using TAGWEBAPI.Integrations.ModernTreasury;
 using TAGWEBAPI.Models;
 using TAGWEBAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.OpenApi.Models;
 
 Console.WriteLine("========================================");
 Console.WriteLine("Setting Up TAG WEB API...");
@@ -69,6 +73,78 @@ builder.Services.AddDbContext<TAGDBContext>(options =>
     options.UseNpgsql(dbConnectionString));
 Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
 
+// ==========================================
+// 1. ADD JWT AUTHENTICATION FOR NEXTAUTH 
+// ==========================================
+var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // Add "NextAuthSecret": "YOUR_SECRET_HERE" to appsettings.json
+if (string.IsNullOrEmpty(nextAuthSecret))
+{
+    Console.WriteLine("========================================");
+    Console.WriteLine("WARNING: NEXTAUTH_SECRET is not configured in appsettings. Local secure testing will fail.");
+    Console.WriteLine("========================================");
+}
+else
+{
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        var keyBytes = Encoding.UTF8.GetBytes(nextAuthSecret);
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+            
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(5), // Give 5 mins leeway for dev clocks
+            
+            // Explicitly tell it to ignore 'kid' (Key ID) headers missing from NextAuth
+            RequireSignedTokens = true,
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // First check native Header authorization (for Swagger testing)
+                var headerAuth = context.Request.Headers["Authorization"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(headerAuth) && headerAuth.StartsWith("Bearer "))
+                {
+                    context.Token = headerAuth.Substring("Bearer ".Length).Trim();
+                    return Task.CompletedTask;
+                }
+
+                // If no header, grab from proxy cookies (For live React application)
+                var token = context.Request.Cookies["next-auth.session-token"] 
+                         ?? context.Request.Cookies["__Secure-next-auth.session-token"];
+                         
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                // Print explicit stack traces for easier debugging
+                Console.WriteLine($"Token failed validation: {context.Exception.Message}");
+                if(context.Exception.InnerException != null) 
+                {
+                    Console.WriteLine($"Inner Ex: {context.Exception.InnerException.Message}");
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+}
+// ==========================================
+
 builder.Services.Configure<ModernTreasuryOptions>(
     builder.Configuration.GetSection(ModernTreasuryOptions.SectionName));
 
@@ -87,8 +163,35 @@ builder.Services.AddSignalR();
 Console.WriteLine(textprefix + "SignalR services registered.");
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Configure Swagger to accept Bearer tokens
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste your NextAuth token here to test secured APIs. Do NOT type 'Bearer ' before the token, just paste the raw token string."
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // Define a named CORS policy
 builder.Services.AddCors(options =>
@@ -148,11 +251,10 @@ try
     app.UseStaticFiles();
     Console.WriteLine(textprefix + "Static file middleware enabled (wwwroot).");
 
+    // MAKE SURE USE_AUTHENTICATION IS ADDED BEFORE USE_AUTHORIZATION
+    app.UseAuthentication(); // <-- ADD THIS LINE
     app.UseAuthorization();
-
-    // Map the default API call to return "Hello World!"
-    app.MapGet("/api/", () => "Hello World!");
-
+    
     app.MapControllers();
     // Map messaging hub
     app.MapHub<MessagingHub>("/hubs/messaging");

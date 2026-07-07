@@ -2,14 +2,15 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 
@@ -82,6 +83,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> PutEvent(int id, Event @event)
         {
             if (id != @event.EventID)
@@ -111,6 +113,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<Event>> PostEvent(Event @event)
         {
             if (_context.Events == null)
@@ -125,6 +128,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> DeleteEvent(int id)
         {
             if (_context.Events == null)
@@ -152,6 +156,7 @@ namespace TAGWEBAPI.Controllers
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [Authorize]
         public async Task<ActionResult<EventSlugReservationResponse>> ReserveEventSlug([FromBody] EventSlugReservationRequest request)
         {
             if (!ModelState.IsValid)
@@ -207,6 +212,7 @@ namespace TAGWEBAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [Authorize]
         public async Task<ActionResult<EventSlugReservationResponse>> UpdateEventSlug(int id, [FromBody] EventSlugUpdateRequest request)
         {
             if (!ModelState.IsValid)

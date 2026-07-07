@@ -2,14 +2,15 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Text.Json;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
 
@@ -17,6 +18,7 @@ namespace TAGWEBAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ListingController : ControllerBase
     {
         private readonly TAGDBContext _context;
@@ -30,6 +32,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Listing>>> GetListings()
         {
             if (_context.Listings == null)
@@ -86,6 +89,7 @@ namespace TAGWEBAPI.Controllers
 
         // Mirror frontend convention: byID route to fetch listing by numeric ID
         [HttpGet("byID/{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Listing>> GetListingByID(int id)
         {
             if (_context.Listings == null)
@@ -116,6 +120,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet("artist/{artistPath}/listing/{listingPath}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Listing>> GetListingByArtistAndPath(string artistPath, string listingPath)
         {
             if (_context.Listings == null)
@@ -154,6 +159,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet("artist/{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Listing>>> GetListingByArtist(int id)
         {
             if (_context.Listings == null)

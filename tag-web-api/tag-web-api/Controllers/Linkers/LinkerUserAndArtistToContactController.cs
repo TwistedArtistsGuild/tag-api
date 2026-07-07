@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers
 
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class Linker_UserAndArtistToContactController : ControllerBase
     {
         private readonly TAGDBContext context;
@@ -22,6 +24,7 @@ namespace TAGWEBAPI.Controllers
 
         // GET: api/Linker_UserAndArtistToContact
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Linker_UserAndArtistToContact>>> GetLinker_UserAndArtistToContacts()
         {
             return await this.context.Set<Linker_UserAndArtistToContact>().ToListAsync().ConfigureAwait(false);
@@ -29,6 +32,7 @@ namespace TAGWEBAPI.Controllers
 
         // GET: api/Linker_UserAndArtistToContact/5
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Linker_UserAndArtistToContact>> GetLinker_UserAndArtistToContact(int id)
         {
             var linker_UserAndArtistToContact = await this.context.Set<Linker_UserAndArtistToContact>().FindAsync(id).ConfigureAwait(false);

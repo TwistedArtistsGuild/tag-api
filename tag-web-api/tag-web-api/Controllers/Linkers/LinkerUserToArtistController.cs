@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class Linker_UserToArtistController : ControllerBase
 {
     private readonly TAGDBContext context;
@@ -21,12 +23,14 @@ public class Linker_UserToArtistController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Linker_UserToArtist>>> GetUserToArtists()
     {
         return await this.context.Set<Linker_UserToArtist>().ToListAsync().ConfigureAwait(false);
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<Linker_UserToArtist>> GetUserToArtist(int id)
     {
         var userToArtist = await this.context.Set<Linker_UserToArtist>().FindAsync(id).ConfigureAwait(false);
@@ -40,6 +44,7 @@ public class Linker_UserToArtistController : ControllerBase
     }
 
     [HttpGet("byUserID/{userId}")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Artist>>> GetArtistsByUserId(int userId)
     {
         var artistIds = await this.context.Set<Linker_UserToArtist>()

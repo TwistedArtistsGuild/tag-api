@@ -4,6 +4,7 @@
 
 namespace TAGWEBAPI.Controllers
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers
 
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class Linker_VendorToUserController : ControllerBase
     {
         private readonly TAGDBContext context;
@@ -22,6 +24,7 @@ namespace TAGWEBAPI.Controllers
 
         // GET: api/Linker_VendorToUser
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Linker_VendorToUser>>> GetLinker_VendorToUsers()
         {
             return await this.context.Set<Linker_VendorToUser>().ToListAsync().ConfigureAwait(false);
@@ -29,6 +32,7 @@ namespace TAGWEBAPI.Controllers
 
         // GET: api/Linker_VendorToUser/5
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Linker_VendorToUser>> GetLinker_VendorToUser(int id)
         {
             var linker_VendorToUser = await this.context.Set<Linker_VendorToUser>().FindAsync(id).ConfigureAwait(false);

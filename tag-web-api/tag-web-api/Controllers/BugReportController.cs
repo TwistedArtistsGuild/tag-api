@@ -4,14 +4,16 @@
 
 namespace TAGWEBAPI.Controllers
 {
-    using System.Text.Json;
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
+    using System.Text.Json;
     using TAGWEBAPI.Data;
     using TAGWEBAPI.Models;
 
     [Route("api/bug-report")]
     [ApiController]
+    [Authorize]
     public class BugReportController : ControllerBase
     {
         private static readonly string[] AllowedStatuses = new[] { "new", "triaged", "in-progress", "resolved", "closed" };

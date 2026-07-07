@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class Linker_TransactionLineItemController : ControllerBase
 {
     private readonly TAGDBContext context;
@@ -24,12 +26,14 @@ public class Linker_TransactionLineItemController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Linker_TransactionLineItem>>> Get()
     {
         return await this.context.Set<Linker_TransactionLineItem>().ToListAsync().ConfigureAwait(false);
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<Linker_TransactionLineItem>> Get(int id)
     {
         var linker_TransactionLineItem = await this.context.Set<Linker_TransactionLineItem>().FindAsync(id).ConfigureAwait(false);

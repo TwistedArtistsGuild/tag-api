@@ -4,16 +4,18 @@
 
 namespace TAGWEBAPI.Controllers
 {
-    using System.Globalization;
-    using System.Text.RegularExpressions;
-    using Microsoft.Extensions.Logging;
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
+    using Microsoft.Extensions.Logging;
+    using System.Globalization;
+    using System.Text.RegularExpressions;
     using TAGWEBAPI.Data;
     using TAGWEBAPI.Models;
 
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class VendorController : ControllerBase
     {
         private static readonly Regex ValidSlugRegex = new Regex(@"^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$", RegexOptions.Compiled);

@@ -2,24 +2,26 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TAGWEBAPI.Data;
 using TAGWEBAPI.Models;
-using Microsoft.AspNetCore.Http;
-using System.ComponentModel.DataAnnotations;
-using System.IO;
-using System.Text.Json;
 
 namespace TAGWEBAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class BlogController : ControllerBase
     {
         private readonly TAGDBContext _context;
@@ -33,6 +35,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Blog>>> GetBlogs()
         {
             if (_context.Blogs == null)
@@ -53,6 +56,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Blog>> GetBlog(int id)
         {
             if (_context.Blogs == null)
@@ -78,6 +82,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpGet("path/{path}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Blog>> GetBlogByPath(string path)
         {
             if (_context.Blogs == null)

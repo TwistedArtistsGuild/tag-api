@@ -1,16 +1,18 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TAGWEBAPI.Data;
-using TAGWEBAPI.Models;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+using TAGWEBAPI.Data;
+using TAGWEBAPI.Models;
 
 namespace TAGWEBAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class MotionsController : ControllerBase
     {
         private readonly TAGDBContext _context;

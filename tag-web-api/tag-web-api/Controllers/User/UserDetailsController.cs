@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -320,6 +321,7 @@ public class UserDetailsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize]
     public async Task<IActionResult> Update(int id, [FromBody] UserDetailsUpdateRequest request)
     {
         if (!this.ModelState.IsValid)
@@ -391,6 +393,7 @@ public class UserDetailsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
         var user = await this.context.Set<User>().FindAsync(id).ConfigureAwait(false);

@@ -1,18 +1,20 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TAGWEBAPI.Data;
-using TAGWEBAPI.Models;
 using TAGWEBAPI.Hubs;
+using TAGWEBAPI.Models;
 
 namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ConversationsController : ControllerBase
 {
     private readonly TAGDBContext _context;

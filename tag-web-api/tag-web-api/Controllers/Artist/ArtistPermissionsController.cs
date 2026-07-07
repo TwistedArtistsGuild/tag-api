@@ -2,6 +2,7 @@
 // Copyright © Twisted Artists Guild. All rights reserved
 // </copyright>
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TAGWEBAPI.Data;
@@ -11,6 +12,7 @@ namespace TAGWEBAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ArtistPermissionsController : ControllerBase
 {
     private readonly TAGDBContext context;
@@ -76,6 +78,7 @@ public class ArtistPermissionsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
         var artistPermissions = await this.context.Set<ArtistPermissions>().FindAsync(id).ConfigureAwait(false);
