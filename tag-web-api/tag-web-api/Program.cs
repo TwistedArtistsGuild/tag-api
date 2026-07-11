@@ -85,7 +85,7 @@ var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // (reference env.
 if (string.IsNullOrEmpty(nextAuthSecret))
 {
     Console.WriteLine("========================================");
-    Console.WriteLine("WARNING: envVar: NextAuthSecret not set. API authentication will fail - only anonymous routes will work.");
+    Console.WriteLine("WARNING: Configuration value 'NextAuthSecret' is not set. JWT authentication will not be configured; [Authorize] endpoints will fail.");
     Console.WriteLine("========================================");
 }
 else
