@@ -78,9 +78,8 @@ namespace TAGWEBAPI.Controllers
             return this.Ok(new { item = MapToDetail(report) });
         }
 
-        [HttpPost]
-        [AllowAnonymous]
-        public async Task<ActionResult<object>> PostBugReport([FromBody] BugReportCreateRequest request)
+[HttpPost]
+public async Task<ActionResult<object>> PostBugReport([FromBody] BugReportCreateRequest request)
         {
             if (request == null)
             {
