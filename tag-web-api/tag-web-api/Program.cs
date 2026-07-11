@@ -81,11 +81,11 @@ Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
 // ==========================================
 // 1. ADD JWT AUTHENTICATION FOR NEXTAUTH 
 // ==========================================
-var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // dotnet user-secrets add "NextAuthSecret = XXXX <- reference env.local
+var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // (reference env.local) -> dotnet user-secrets set NextAuthSecret XXXX 
 if (string.IsNullOrEmpty(nextAuthSecret))
 {
     Console.WriteLine("========================================");
-    Console.WriteLine("WARNING: envVar: NextAuthSecret not set. Local secure testing will fail.");
+    Console.WriteLine("WARNING: envVar: NextAuthSecret not set. API authentication will fail - only anonymous routes will work.");
     Console.WriteLine("========================================");
 }
 else
