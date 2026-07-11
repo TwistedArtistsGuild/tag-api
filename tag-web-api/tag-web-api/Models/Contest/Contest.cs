@@ -32,9 +32,8 @@ public class Contest
     [Column("start_date")]
     public DateTime StartDate { get; set; }
 
-    [Required]
     [Column("warmup_end_date")]
-    public DateTime WarmupEndDate { get; set; }
+    public DateTime? WarmupEndDate { get; set; }
 
     [Required]
     [Column("end_date")]

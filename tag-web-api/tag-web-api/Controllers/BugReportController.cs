@@ -79,6 +79,7 @@ namespace TAGWEBAPI.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult<object>> PostBugReport([FromBody] BugReportCreateRequest request)
         {
             if (request == null)
