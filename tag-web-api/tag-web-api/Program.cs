@@ -87,9 +87,6 @@ if (string.IsNullOrEmpty(nextAuthSecret))
     Console.WriteLine("========================================");
     Console.WriteLine("WARNING: envVar: NextAuthSecret not set. Local secure testing will fail.");
     Console.WriteLine("========================================");
-    // Always register a default scheme so [Authorize] returns 401 instead of throwing an unhandled exception
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer();
 }
 else
 {
