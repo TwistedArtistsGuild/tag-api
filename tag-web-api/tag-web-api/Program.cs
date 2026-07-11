@@ -24,8 +24,9 @@ var textprefix = "==--->>>|";
 var builder = WebApplication.CreateBuilder(args);
 
 // Retrieve the Application Insights connection string from the environment variable
+// Skip entirely in Development to keep the debug console readable
 var appInsightsConnectionString = builder.Configuration.GetConnectionString("appinsights");
-if (!string.IsNullOrEmpty(appInsightsConnectionString))
+if (!builder.Environment.IsDevelopment() && !string.IsNullOrEmpty(appInsightsConnectionString))
 {
     // Register Application Insights carefully - failures during design-time (dotnet-ef)
     // or mismatched package/tooling versions can throw when listeners are attached.
@@ -40,6 +41,10 @@ if (!string.IsNullOrEmpty(appInsightsConnectionString))
         Console.WriteLine(textprefix + "Could not enable Application Insights telemetry. Continuing without it.");
         Console.WriteLine("Telemetry registration error: " + aiEx.Message);
     }
+}
+else if (builder.Environment.IsDevelopment())
+{
+    Console.WriteLine(textprefix + "Application Insights skipped in Development environment.");
 }
 else
 {
@@ -76,12 +81,15 @@ Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
 // ==========================================
 // 1. ADD JWT AUTHENTICATION FOR NEXTAUTH 
 // ==========================================
-var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // Add "NextAuthSecret": "YOUR_SECRET_HERE" to appsettings.json
+var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // dotnet user-secrets add "NextAuthSecret = XXXX <- reference env.local
 if (string.IsNullOrEmpty(nextAuthSecret))
 {
     Console.WriteLine("========================================");
-    Console.WriteLine("WARNING: NEXTAUTH_SECRET is not configured in appsettings. Local secure testing will fail.");
+    Console.WriteLine("WARNING: envVar: NextAuthSecret not set. Local secure testing will fail.");
     Console.WriteLine("========================================");
+    // Always register a default scheme so [Authorize] returns 401 instead of throwing an unhandled exception
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer();
 }
 else
 {
