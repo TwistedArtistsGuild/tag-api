@@ -98,18 +98,24 @@ else
     .AddJwtBearer(options =>
     {
         var keyBytes = Encoding.UTF8.GetBytes(nextAuthSecret);
+        var signingKey = new SymmetricSecurityKey(keyBytes);
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+            IssuerSigningKey = signingKey,
+            
+            // Always resolve to our key, regardless of 'kid' header in the token
+            IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
+            {
+                return new[] { signingKey };
+            },
             
             ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5), // Give 5 mins leeway for dev clocks
+            ClockSkew = TimeSpan.FromMinutes(5),
             
-            // Explicitly tell it to ignore 'kid' (Key ID) headers missing from NextAuth
             RequireSignedTokens = true,
         };
 
