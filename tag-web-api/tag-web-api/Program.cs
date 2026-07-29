@@ -99,14 +99,13 @@ else
     {
         var keyBytes = Encoding.UTF8.GetBytes(nextAuthSecret);
         var signingKey = new SymmetricSecurityKey(keyBytes);
+        signingKey.KeyId = "nextauth-key";
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = signingKey,
-            
-            // Always resolve to our key, regardless of 'kid' header in the token
-            IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
+            IssuerSigningKeyResolver = (tokenString, securityToken, kid, parameters) =>
             {
                 return new[] { signingKey };
             },
@@ -115,7 +114,6 @@ else
             ValidateAudience = false,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(5),
-            
             RequireSignedTokens = true,
         };
 
