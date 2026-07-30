@@ -78,10 +78,14 @@ builder.Services.AddDbContext<TAGDBContext>(options =>
     options.UseNpgsql(dbConnectionString));
 Console.WriteLine(textprefix + "Database context configured with PostgreSQL.");
 
+Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
+
 // ==========================================
 // 1. ADD JWT AUTHENTICATION FOR NEXTAUTH 
 // ==========================================
 var nextAuthSecret = builder.Configuration["NextAuthSecret"]; // (reference env.local) -> dotnet user-secrets set NextAuthSecret XXXX 
+Console.WriteLine($"==--->>>| NextAuthSecret length: {nextAuthSecret?.Length}, first 4 chars: {nextAuthSecret?.Substring(0, 4)}");
+
 if (string.IsNullOrEmpty(nextAuthSecret))
 {
     Console.WriteLine("========================================");
@@ -121,21 +125,25 @@ else
         {
             OnMessageReceived = context =>
             {
-                // First check native Header authorization (for Swagger testing)
                 var headerAuth = context.Request.Headers["Authorization"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(headerAuth) && headerAuth.StartsWith("Bearer "))
                 {
                     context.Token = headerAuth.Substring("Bearer ".Length).Trim();
+                    Console.WriteLine($"Token from header (first 20): {context.Token.Substring(0, Math.Min(20, context.Token.Length))}...");
                     return Task.CompletedTask;
                 }
 
-                // If no header, grab from proxy cookies (For live React application)
                 var token = context.Request.Cookies["next-auth.session-token"] 
                          ?? context.Request.Cookies["__Secure-next-auth.session-token"];
                          
                 if (!string.IsNullOrEmpty(token))
                 {
                     context.Token = token;
+                    Console.WriteLine($"Token from cookie (first 20): {token.Substring(0, Math.Min(20, token.Length))}...");
+                }
+                else
+                {
+                    Console.WriteLine("No token found in header or cookies.");
                 }
                 return Task.CompletedTask;
             },
