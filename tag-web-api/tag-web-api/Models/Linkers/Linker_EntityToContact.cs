@@ -14,6 +14,16 @@ public enum ContactScope
     Secondary = 2
 }
 
+public static class LinkedEntityTypes
+{
+    public const string User = "User";
+    public const string Artist = "Artist";
+    public const string Venue = "Venue";
+    public const string Vendor = "Vendor";
+
+    public static readonly string[] All = [User, Artist, Venue, Vendor];
+}
+
 public class Linker_EntityToContact
 {
     [Key]
@@ -21,13 +31,11 @@ public class Linker_EntityToContact
 
     public int ContactID { get; set; }
 
-    public int? UserID { get; set; }
+    [Required]
+    [StringLength(50)]
+    public string EntityType { get; set; } = string.Empty;
 
-    public int? ArtistID { get; set; }
-
-    public int? VenueID { get; set; }
-
-    public int? VendorID { get; set; }
+    public int EntityID { get; set; }
 
     public ContactScope Scope { get; set; } = ContactScope.Secondary;
 
@@ -35,16 +43,4 @@ public class Linker_EntityToContact
 
     [ForeignKey("ContactID")]
     public Contact Contact { get; set; } = null!;
-
-    [ForeignKey("UserID")]
-    public User? User { get; set; }
-
-    [ForeignKey("ArtistID")]
-    public Artist? Artist { get; set; }
-
-    [ForeignKey("VenueID")]
-    public Venue? Venue { get; set; }
-
-    [ForeignKey("VendorID")]
-    public Vendor? Vendor { get; set; }
 }

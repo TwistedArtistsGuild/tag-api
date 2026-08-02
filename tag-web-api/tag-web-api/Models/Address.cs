@@ -18,7 +18,7 @@ public class Address
 
     [StringLength(255)]
     public string? AddressLine2 { get; set; }
-    
+
     public string? AddressLine3 { get; set; }
 
     public string? AddressLine4 { get; set; }
@@ -45,7 +45,4 @@ public class Address
 
     [ForeignKey("ContactLabelID")]
     public ContactLabel? ContactLabel { get; set; }
-
-    // Navigation property - contacts using this address
-    public virtual ICollection<Linker_UserAndArtistToContact> Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
 }

@@ -48,10 +48,34 @@ namespace TAGWEBAPI.Controllers.Contact
             return link;
         }
 
+        [HttpGet("by-entity/{entityType}/{entityId}")]
+        public async Task<ActionResult<IEnumerable<Linker_EntityToContact>>> GetLinksByEntity(string entityType, int entityId)
+        {
+            if (!LinkedEntityTypes.All.Contains(entityType))
+            {
+                return this.BadRequest($"Invalid entity type '{entityType}'. Valid types: {string.Join(", ", LinkedEntityTypes.All)}");
+            }
+
+            var links = await this.context.Set<Linker_EntityToContact>()
+                .Include(l => l.Contact)
+                .Where(l => l.EntityType == entityType && l.EntityID == entityId)
+                .OrderBy(l => l.DisplayOrder)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return this.Ok(links);
+        }
+
         [HttpPost]
         [Authorize]
         public async Task<ActionResult<Linker_EntityToContact>> PostLink(LinkerCreateRequest request)
         {
+            var validationError = ValidateRequest(request.EntityType, request.EntityID);
+            if (validationError != null)
+            {
+                return this.BadRequest(validationError);
+            }
+
             var contact = await this.context.Set<Contact>()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.ContactID == request.ContactID)
@@ -62,22 +86,19 @@ namespace TAGWEBAPI.Controllers.Contact
                 return this.BadRequest($"Contact {request.ContactID} was not found.");
             }
 
+            if (!await this.EntityExistsAsync(request.EntityType, request.EntityID).ConfigureAwait(false))
+            {
+                return this.BadRequest($"{request.EntityType} with ID {request.EntityID} was not found.");
+            }
+
             var link = new Linker_EntityToContact
             {
                 ContactID = request.ContactID,
-                UserID = request.UserID,
-                ArtistID = request.ArtistID,
-                VenueID = request.VenueID,
-                VendorID = request.VendorID,
+                EntityType = request.EntityType,
+                EntityID = request.EntityID,
                 DisplayOrder = request.DisplayOrder,
-                Scope = ContactScope.Secondary,
+                Scope = request.Scope,
             };
-
-            var validationError = ValidateEntityTarget(link);
-            if (validationError != null)
-            {
-                return this.BadRequest(validationError);
-            }
 
             this.context.Set<Linker_EntityToContact>().Add(link);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
@@ -94,7 +115,7 @@ namespace TAGWEBAPI.Controllers.Contact
                 return this.BadRequest();
             }
 
-            var validationError = ValidateEntityTarget(link);
+            var validationError = ValidateRequest(link.EntityType, link.EntityID);
             if (validationError != null)
             {
                 return this.BadRequest(validationError);
@@ -150,30 +171,36 @@ namespace TAGWEBAPI.Controllers.Contact
             return this.NoContent();
         }
 
-        private static string? ValidateEntityTarget(Linker_EntityToContact link)
+        private static string? ValidateRequest(string entityType, int entityId)
         {
-            var ownerCount = 0;
-            if (link.UserID.HasValue)
+            if (string.IsNullOrWhiteSpace(entityType))
             {
-                ownerCount++;
+                return "EntityType is required.";
             }
 
-            if (link.ArtistID.HasValue)
+            if (!LinkedEntityTypes.All.Contains(entityType))
             {
-                ownerCount++;
+                return $"Invalid entity type '{entityType}'. Valid types: {string.Join(", ", LinkedEntityTypes.All)}";
             }
 
-            if (link.VenueID.HasValue)
+            if (entityId <= 0)
             {
-                ownerCount++;
+                return "EntityID must be a positive integer.";
             }
 
-            if (link.VendorID.HasValue)
-            {
-                ownerCount++;
-            }
+            return null;
+        }
 
-            return ownerCount == 1 ? null : "Exactly one owner must be set: UserID, ArtistID, VenueID, or VendorID.";
+        private async Task<bool> EntityExistsAsync(string entityType, int entityId)
+        {
+            return entityType switch
+            {
+                LinkedEntityTypes.User => await this.context.Users.AnyAsync(u => u.UserID == entityId).ConfigureAwait(false),
+                LinkedEntityTypes.Artist => await this.context.Artists.AnyAsync(a => a.ArtistID == entityId).ConfigureAwait(false),
+                LinkedEntityTypes.Venue => await this.context.Venues.AnyAsync(v => v.VenueID == entityId).ConfigureAwait(false),
+                LinkedEntityTypes.Vendor => await this.context.Vendors.AnyAsync(v => v.VendorID == entityId).ConfigureAwait(false),
+                _ => false,
+            };
         }
 
         private bool LinkExists(int id)
@@ -189,14 +216,12 @@ namespace TAGWEBAPI.Controllers.Contact
     {
         public int ContactID { get; set; }
 
-        public int? UserID { get; set; }
+        public string EntityType { get; set; } = string.Empty;
 
-        public int? ArtistID { get; set; }
-
-        public int? VenueID { get; set; }
-
-        public int? VendorID { get; set; }
+        public int EntityID { get; set; }
 
         public int DisplayOrder { get; set; }
+
+        public ContactScope Scope { get; set; } = ContactScope.Secondary;
     }
 }

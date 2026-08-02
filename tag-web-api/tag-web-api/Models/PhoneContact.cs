@@ -4,6 +4,7 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
 
@@ -25,7 +26,4 @@ public class PhoneContact
     public PhoneContactLabel? PhoneContactLabel { get; set; }
 
     public ContactLabel? ContactLabel { get; set; }
-
-    // Navigation property - contacts using this phone
-    public virtual ICollection<Linker_UserAndArtistToContact> Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
 }

@@ -14,6 +14,13 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
     {
         builder.HasKey(l => l.Linker_EntityToContactID);
 
+        builder.Property(l => l.EntityType)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(l => l.EntityID)
+            .IsRequired();
+
         builder.Property(l => l.Scope)
             .HasDefaultValue(ContactScope.Secondary);
 
@@ -26,39 +33,10 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
             .OnDelete(DeleteBehavior.Cascade)
             .IsRequired();
 
-        builder.HasOne(l => l.Artist)
-            .WithMany()
-            .HasForeignKey(l => l.ArtistID)
-            .OnDelete(DeleteBehavior.Restrict)
-            .IsRequired(false);
+        builder.HasIndex(l => new { l.EntityType, l.EntityID, l.ContactID })
+            .IsUnique();
 
-        builder.HasOne(l => l.User)
-            .WithMany()
-            .HasForeignKey(l => l.UserID)
-            .OnDelete(DeleteBehavior.Restrict)
-            .IsRequired(false);
-
-        builder.HasOne(l => l.Venue)
-            .WithMany()
-            .HasForeignKey(l => l.VenueID)
-            .OnDelete(DeleteBehavior.Restrict)
-            .IsRequired(false);
-
-        builder.HasOne(l => l.Vendor)
-            .WithMany()
-            .HasForeignKey(l => l.VendorID)
-            .OnDelete(DeleteBehavior.Restrict)
-            .IsRequired(false);
-
-        builder.ToTable(t =>
-        {
-            t.HasCheckConstraint(
-                "CK_LinkerEntityToContact_SingleOwner",
-                "(CASE WHEN \"UserID\" IS NOT NULL THEN 1 ELSE 0 END + " +
-                "CASE WHEN \"ArtistID\" IS NOT NULL THEN 1 ELSE 0 END + " +
-                "CASE WHEN \"VenueID\" IS NOT NULL THEN 1 ELSE 0 END + " +
-                "CASE WHEN \"VendorID\" IS NOT NULL THEN 1 ELSE 0 END) = 1");
-        });
+        builder.HasIndex(l => new { l.EntityType, l.EntityID });
 
         SeedData(builder);
     }
@@ -69,7 +47,8 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
             new Linker_EntityToContact
             {
                 Linker_EntityToContactID = 1001,
-                ArtistID = 4,
+                EntityType = LinkedEntityTypes.Artist,
+                EntityID = 4,
                 ContactID = 1001,
                 Scope = ContactScope.Primary,
                 DisplayOrder = 1,
@@ -77,7 +56,8 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
             new Linker_EntityToContact
             {
                 Linker_EntityToContactID = 1002,
-                ArtistID = 4,
+                EntityType = LinkedEntityTypes.Artist,
+                EntityID = 4,
                 ContactID = 1002,
                 Scope = ContactScope.Secondary,
                 DisplayOrder = 2,
@@ -85,7 +65,8 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
             new Linker_EntityToContact
             {
                 Linker_EntityToContactID = 1003,
-                ArtistID = 4,
+                EntityType = LinkedEntityTypes.Artist,
+                EntityID = 4,
                 ContactID = 1003,
                 Scope = ContactScope.Secondary,
                 DisplayOrder = 3,
@@ -93,7 +74,8 @@ public class LinkerEntityToContactConfiguration : IEntityTypeConfiguration<Linke
             new Linker_EntityToContact
             {
                 Linker_EntityToContactID = 1004,
-                ArtistID = 4,
+                EntityType = LinkedEntityTypes.Artist,
+                EntityID = 4,
                 ContactID = 1004,
                 Scope = ContactScope.Secondary,
                 DisplayOrder = 4,
