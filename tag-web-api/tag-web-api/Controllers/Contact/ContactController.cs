@@ -129,6 +129,7 @@ namespace TAGWEBAPI.Controllers.Contact
             }
 
             var normalizedContext = context.Trim().ToLowerInvariant();
+            var entityType = NormalizeContextToEntityType(normalizedContext);
 
             if (!includePrivate && !await this.IsEntityPubliclyVisibleAsync(normalizedContext, entityId).ConfigureAwait(false))
             {
@@ -140,14 +141,7 @@ namespace TAGWEBAPI.Controllers.Contact
                 ? this.context.Set<Linker_EntityToContact>().AsNoTracking()
                 : this.PublicEntityLinksQuery();
 
-            linksQuery = normalizedContext switch
-            {
-                "artist" => linksQuery.Where(l => l.ArtistID == entityId),
-                "user" => linksQuery.Where(l => l.UserID == entityId),
-                "venue" => linksQuery.Where(l => l.VenueID == entityId),
-                "vendor" => linksQuery.Where(l => l.VendorID == entityId),
-                _ => linksQuery.Where(l => false),
-            };
+            linksQuery = linksQuery.Where(l => l.EntityType == entityType && l.EntityID == entityId);
 
             var linkedContacts = await linksQuery
                 .Include(l => l.Contact)
@@ -416,29 +410,16 @@ namespace TAGWEBAPI.Controllers.Contact
 
             var isPrivate = request.IsPrivate ?? defaultPrivate;
             var scope = isPrivate ? ContactScope.Private : ContactScope.Secondary;
+            var entityType = NormalizeContextToEntityType(normalizedContext);
 
             var link = new Linker_EntityToContact
             {
                 ContactID = contact.ContactID,
+                EntityType = entityType,
+                EntityID = request.EntityID,
                 Scope = scope,
                 DisplayOrder = request.DisplayOrder ?? 0,
             };
-
-            switch (normalizedContext)
-            {
-                case "artist":
-                    link.ArtistID = request.EntityID;
-                    break;
-                case "user":
-                    link.UserID = request.EntityID;
-                    break;
-                case "venue":
-                    link.VenueID = request.EntityID;
-                    break;
-                case "vendor":
-                    link.VendorID = request.EntityID;
-                    break;
-            }
 
             this.context.Linker_EntityToContacts.Add(link);
             await this.context.SaveChangesAsync().ConfigureAwait(false);
@@ -487,15 +468,11 @@ namespace TAGWEBAPI.Controllers.Contact
                 return this.BadRequest("LinkIds are required.");
             }
 
-            var query = this.context.Set<Linker_EntityToContact>().Where(l => normalizedIds.Contains(l.Linker_EntityToContactID));
-            query = normalizedContext switch
-            {
-                "artist" => query.Where(l => l.ArtistID == entityId),
-                "user" => query.Where(l => l.UserID == entityId),
-                "venue" => query.Where(l => l.VenueID == entityId),
-                "vendor" => query.Where(l => l.VendorID == entityId),
-                _ => query.Where(l => false),
-            };
+            var entityType = NormalizeContextToEntityType(normalizedContext);
+
+            var query = this.context.Set<Linker_EntityToContact>()
+                .Where(l => normalizedIds.Contains(l.Linker_EntityToContactID))
+                .Where(l => l.EntityType == entityType && l.EntityID == entityId);
 
             var links = await query.ToListAsync().ConfigureAwait(false);
             if (links.Count != normalizedIds.Length)
@@ -619,39 +596,31 @@ namespace TAGWEBAPI.Controllers.Contact
             return null;
         }
 
+        private static string NormalizeContextToEntityType(string normalizedContext)
+        {
+            return normalizedContext switch
+            {
+                "artist" => LinkedEntityTypes.Artist,
+                "user" => LinkedEntityTypes.User,
+                "venue" => LinkedEntityTypes.Venue,
+                "vendor" => LinkedEntityTypes.Vendor,
+                _ => normalizedContext,
+            };
+        }
+
         private IQueryable<Contact> PublicContactsQuery()
         {
             return this.context.Set<Contact>()
                 .AsNoTracking()
                 .Where(c =>
-                    c.EntityLinks.Any(l =>
-                        l.Scope != ContactScope.Private &&
-                        ((l.UserID.HasValue &&
-                          l.User != null &&
-                          l.User.IsPublished &&
-                          !l.User.IsModerationBlocked &&
-                          !l.User.HideFromPublic &&
-                          (l.User.UserPrivacy == null || !l.User.UserPrivacy.HideProfileFromPublic)) ||
-                         (l.ArtistID.HasValue && l.Artist != null && l.Artist.IsPublished && !l.Artist.IsModerationBlocked) ||
-                         (l.VenueID.HasValue && l.Venue != null && l.Venue.IsPublished && !l.Venue.IsModerationBlocked) ||
-                         (l.VendorID.HasValue && l.Vendor != null && l.Vendor.IsPublished && !l.Vendor.IsModerationBlocked))));
+                    c.EntityLinks.Any(l => l.Scope != ContactScope.Private));
         }
 
         private IQueryable<Linker_EntityToContact> PublicEntityLinksQuery()
         {
             return this.context.Set<Linker_EntityToContact>()
                 .AsNoTracking()
-                .Where(l =>
-                    l.Scope != ContactScope.Private &&
-                    ((l.UserID.HasValue &&
-                      l.User != null &&
-                      l.User.IsPublished &&
-                      !l.User.IsModerationBlocked &&
-                      !l.User.HideFromPublic &&
-                      (l.User.UserPrivacy == null || !l.User.UserPrivacy.HideProfileFromPublic)) ||
-                     (l.ArtistID.HasValue && l.Artist != null && l.Artist.IsPublished && !l.Artist.IsModerationBlocked) ||
-                     (l.VenueID.HasValue && l.Venue != null && l.Venue.IsPublished && !l.Venue.IsModerationBlocked) ||
-                     (l.VendorID.HasValue && l.Vendor != null && l.Vendor.IsPublished && !l.Vendor.IsModerationBlocked)));
+                .Where(l => l.Scope != ContactScope.Private);
         }
 
         private async Task<bool> IsEntityPubliclyVisibleAsync(string contextName, int entityId)
@@ -808,14 +777,13 @@ namespace TAGWEBAPI.Controllers.Contact
 
         public string? State { get; set; }
 
-        public string? Region { get; set; }
-
         public string? ZipCode { get; set; }
 
         public string? Country { get; set; }
 
-        public string? OperationHours { get; set; }
+        public string? Region { get; set; }
 
+        public string? OperationHours { get; set; }
     }
 
     public sealed class UpdateContactOrderRequest

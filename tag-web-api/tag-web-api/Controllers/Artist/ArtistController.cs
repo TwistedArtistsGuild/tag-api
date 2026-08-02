@@ -177,7 +177,7 @@ public class ArtistController : ControllerBase
 
         var contactLinks = await _context.Set<Linker_EntityToContact>()
             .AsNoTracking()
-            .Where(l => l.ArtistID == artist.ArtistID && l.Scope != ContactScope.Private)
+            .Where(l => l.EntityType == LinkedEntityTypes.Artist && l.EntityID == artist.ArtistID && l.Scope != ContactScope.Private)
             .Include(l => l.Contact)
                 .ThenInclude(c => c.Address)
             .Include(l => l.Contact)
@@ -257,13 +257,6 @@ public class ArtistController : ControllerBase
             .AsNoTracking()
             .Include(a => a.ProfilePic)
             .Include(a => a.CoverPic)
-            .Include(a => a.Contacts)
-                .ThenInclude(c => c.Address)
-            .Include(a => a.Contacts)
-                .ThenInclude(c => c.PhoneContact)
-            .Include(a => a.Contacts)
-                .ThenInclude(c => c.ExternalLink)
-            .AsSplitQuery() // This optimizes the query when including multiple collections
             .FirstOrDefaultAsync(a => a.Path.ToLower() == normalizedSlug && a.IsPublished && !a.IsModerationBlocked)
             .ConfigureAwait(false);
 
@@ -272,6 +265,18 @@ public class ArtistController : ControllerBase
             _logger.LogWarning("Artist not found for slug: {Slug}", slug);
             return NotFound();
         }
+
+        // Fetch contacts via the polymorphic linker
+        var contactLinks = await _context.Set<Linker_EntityToContact>()
+            .AsNoTracking()
+            .Where(l => l.EntityType == LinkedEntityTypes.Artist && l.EntityID == artist.ArtistID && l.Scope != ContactScope.Private)
+            .Include(l => l.Contact)
+                .ThenInclude(c => c.Address)
+            .Include(l => l.Contact)
+                .ThenInclude(c => c.PhoneContact)
+            .OrderBy(l => l.DisplayOrder)
+            .ToListAsync()
+            .ConfigureAwait(false);
 
         // Fetch linked user IDs from the linker table (users associated with this artist)
         var artistUserId = await _context.Set<Linker_UserToArtist>()
@@ -309,41 +314,38 @@ public class ArtistController : ControllerBase
             _logger.LogInformation("No listings found for artist ID: {ArtistID}", artist.ArtistID);
         }
 
-        // Filter the contacts to only get public ones
-        var publicContacts = artist.Contacts?.Where(c => c.MakePublic).ToList();
-
         // Process contacts into appropriate structures for the API response
-        var addresses = publicContacts?
-            .Where(c => c.Address != null)
-            .Select(c => new {
-                c.Label,
-                c.Address.AddressLine1,
-                c.Address.AddressLine2,
-                c.Address.City,
-                c.Address.State,
-                c.Address.ZipCode,
-                c.Address.Country,
-                c.Address.OperationHours
+        var addresses = contactLinks
+            .Where(l => l.Contact != null && string.Equals(l.Contact.ContactType, "address", StringComparison.OrdinalIgnoreCase) && l.Contact.Address != null)
+            .Select(l => new {
+                l.Contact.Label,
+                l.Contact.Address!.AddressLine1,
+                l.Contact.Address.AddressLine2,
+                l.Contact.Address.City,
+                l.Contact.Address.State,
+                l.Contact.Address.ZipCode,
+                l.Contact.Address.Country,
+                l.Contact.Address.OperationHours
             }).ToList();
 
-        var phoneContacts = publicContacts?
-            .Where(c => c.PhoneContact != null)
-            .Select(c => new {
-                c.Label,
-                Number = c.PhoneContact.PhoneNumber,
-                Description = c.PhoneContact.Description
+        var phoneContacts = contactLinks
+            .Where(l => l.Contact != null && string.Equals(l.Contact.ContactType, "phone", StringComparison.OrdinalIgnoreCase) && l.Contact.PhoneContact != null)
+            .Select(l => new {
+                l.Contact.Label,
+                Number = l.Contact.PhoneContact!.PhoneNumber,
+                Description = l.Contact.PhoneContact.Description
             }).ToList();
 
-        var externalLinks = publicContacts?
-            .Where(c => c.ExternalLink != null)
-            .Select(c => new {
-                c.Label,
-                URL = c.ExternalLink.URL
+        var externalLinks = contactLinks
+            .Where(l => l.Contact != null && string.Equals(l.Contact.ContactType, "url", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(l.Contact.Value))
+            .Select(l => new {
+                l.Contact.Label,
+                URL = l.Contact.Value
             }).ToList();
 
         return new
         {
-            artist = new { 
+            artist = new {
                 artist.ArtistID,
                 Title = CoalescePlaintext(artist.Title_Plaintext, artist.Title),
                 TitleRichtext = artist.Title,

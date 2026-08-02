@@ -58,8 +58,6 @@ namespace TAGWEBAPI.Data
 
         public DbSet<Linker_UserFavorite> Linker_UserFavorites { get; set; }
 
-        public DbSet<Linker_UserAndArtistToContact> Linker_UserAndArtistToContacts { get; set; }
-
         public DbSet<Linker_VendorToUser> Linker_VendorToUsers { get; set; }
 
         public DbSet<Listing> Listings { get; set; }

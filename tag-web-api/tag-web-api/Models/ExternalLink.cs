@@ -18,10 +18,10 @@ public class ExternalLink
 
     [StringLength(1000)]
     public string? URL { get; set; }
-    
+
     [StringLength(255)]
     public string? Description { get; set; }
-    
+
     [StringLength(100)]
     public string? Handle { get; set; }
 
@@ -34,7 +34,4 @@ public class ExternalLink
 
     [ForeignKey("ContactLabelID")]
     public virtual ContactLabel? ContactLabel { get; set; }
-
-    // Navigation property - contacts using this link
-    public virtual ICollection<Linker_UserAndArtistToContact> Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
 }

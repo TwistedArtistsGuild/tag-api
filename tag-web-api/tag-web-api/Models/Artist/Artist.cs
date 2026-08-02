@@ -72,8 +72,6 @@ public class Artist
 
     public virtual ArtistPermissions ArtistPermissions { get; set; }
 
-    public virtual ICollection<Linker_UserAndArtistToContact>? Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
-
     public virtual ICollection<LinkerArtistToCategory>? ArtistCategoryLinks { get; set; } = new List<LinkerArtistToCategory>();
 
     [JsonIgnore]

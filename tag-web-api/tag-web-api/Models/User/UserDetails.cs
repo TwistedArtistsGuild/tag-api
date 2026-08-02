@@ -76,9 +76,6 @@ public class User
     public UserPrivacy UserPrivacy { get; set; }
     public UserPreference UserPreference { get; set; }
 
-    // Navigation properties for related entities
-    public virtual ICollection<Linker_UserAndArtistToContact>? Contacts { get; set; } = new List<Linker_UserAndArtistToContact>();
-
     /// <summary>
     /// Gets or sets the collection of Transactions associated with this user
     /// </summary>
