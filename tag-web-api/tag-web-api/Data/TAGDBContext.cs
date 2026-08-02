@@ -161,6 +161,12 @@ namespace TAGWEBAPI.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
 
+        public DbSet<ListingCostBreakdown> ListingCostBreakdowns { get; set; }
+
+        public DbSet<CostLineItem> CostLineItems { get; set; }
+
+        public DbSet<LaborEntry> LaborEntries { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

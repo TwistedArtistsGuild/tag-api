@@ -83,4 +83,6 @@ public class Listing
     public Gallery? Gallery { get; set; }
 
     public ICollection<ListingSalesItem> ListingSalesItems { get; set; } = new List<ListingSalesItem>();
+
+    public ListingCostBreakdown? CostBreakdown { get; set; }
 }
