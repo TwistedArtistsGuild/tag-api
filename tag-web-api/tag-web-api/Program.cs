@@ -14,6 +14,7 @@ using TAGWEBAPI.Models;
 using TAGWEBAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.OpenApi.Models;
+using TAGWEBAPI.Services;
 
 Console.WriteLine("========================================");
 Console.WriteLine("Setting Up TAG WEB API...");
@@ -155,6 +156,10 @@ builder.Services.AddHttpClient<IModernTreasuryLedgerService, ModernTreasuryLedge
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 Console.WriteLine(textprefix + "Modern Treasury ledger service configured.");
+
+builder.Services.AddSingleton<PricingCalculatorService>();
+Console.WriteLine(textprefix + "Pricing calculator service configured.");
+
 
 // Ensure Data Protection services are registered for server-side envelope protection (messages)
 builder.Services.AddDataProtection();
