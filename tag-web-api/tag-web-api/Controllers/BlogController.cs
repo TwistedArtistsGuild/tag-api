@@ -43,6 +43,7 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
             var blogs = await _context.Blogs
+                .Where(b => b.StatusID == BlogStatus.Published)
                 .Include(b => b.User)
                 .Include(b => b.Gallery!)
                     .ThenInclude(g => g.GalleryItems)
@@ -71,7 +72,7 @@ namespace TAGWEBAPI.Controllers
                 .Include(b => b.Gallery!)
                     .ThenInclude(g => g.GalleryItems)
                     .ThenInclude(gi => gi.Video)
-                .FirstOrDefaultAsync(b => b.BlogID == id);
+                .FirstOrDefaultAsync(b => b.BlogID == id && b.StatusID != BlogStatus.ModerationBlocked);
 
             if (blog == null)
             {
@@ -97,7 +98,7 @@ namespace TAGWEBAPI.Controllers
                 .Include(b => b.Gallery!)
                     .ThenInclude(g => g.GalleryItems)
                     .ThenInclude(gi => gi.Video)
-                .FirstOrDefaultAsync(b => b.Path == path);
+                .FirstOrDefaultAsync(b => b.Path == path && b.StatusID == BlogStatus.Published);
 
             if (blog == null)
             {
@@ -768,6 +769,8 @@ namespace TAGWEBAPI.Controllers
                 blog.User,
                 blog.Gallery,
                 blog.CoverPic,
+                blog.StatusID,
+                Status = blog.StatusID.ToString(),
             };
         }
 
