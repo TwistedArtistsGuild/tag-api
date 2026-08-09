@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TAGWEBAPI.Models;
+
 public class Event
 {
     [Key]
@@ -55,12 +56,14 @@ public class Event
     public int? CoverPicID { get; set; }
 
     public int? ProfilePicID { get; set; }
-    
+
+    public EventStatus StatusID { get; set; } = EventStatus.Draft;
+
     // Navigation properties
     public Artist Artist { get; set; }
 
     public EventCategory? EventCategory { get; set; }
-    
+
     public Venue Venue { get; set; }
 
     public Gallery? Gallery { get; set; }

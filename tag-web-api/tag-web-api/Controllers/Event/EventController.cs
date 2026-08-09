@@ -35,6 +35,7 @@ namespace TAGWEBAPI.Controllers
                 return NotFound();
             }
             var events = await _context.Events
+                .Where(e => e.StatusID == EventStatus.Published)
                 .Include(e => e.Artist)
                 .Include(e => e.Venue)
                 .ToListAsync();
@@ -52,7 +53,7 @@ namespace TAGWEBAPI.Controllers
             var @event = await _context.Events
                 .Include(e => e.Artist)
                 .Include(e => e.Venue)
-                .FirstOrDefaultAsync(e => e.EventID == id);
+                .FirstOrDefaultAsync(e => e.EventID == id && e.StatusID != EventStatus.ModerationBlocked);
 
             if (@event == null)
             {
@@ -72,7 +73,7 @@ namespace TAGWEBAPI.Controllers
             var @event = await _context.Events
                 .Include(e => e.Artist)
                 .Include(e => e.Venue)
-                .FirstOrDefaultAsync(e => e.Path == path);
+                .FirstOrDefaultAsync(e => e.Path == path && e.StatusID == EventStatus.Published);
 
             if (@event == null)
             {
@@ -294,6 +295,8 @@ namespace TAGWEBAPI.Controllers
                 @event.Gallery,
                 @event.CoverPic,
                 @event.ProfilePic,
+                @event.StatusID,
+                Status = @event.StatusID.ToString(),
             };
         }
 

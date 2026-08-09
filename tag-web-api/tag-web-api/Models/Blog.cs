@@ -42,6 +42,8 @@ public class Blog
 
     public int? CoverPicID { get; set; }
 
+    public BlogStatus StatusID { get; set; } = BlogStatus.Draft;
+
     [ValidateNever]
     public virtual User User { get; set; }
 
@@ -50,5 +52,4 @@ public class Blog
 
     [ValidateNever]
     public virtual Picture? CoverPic { get; set; }
-
 }
