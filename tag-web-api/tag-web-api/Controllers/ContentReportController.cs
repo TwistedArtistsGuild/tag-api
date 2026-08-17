@@ -296,6 +296,11 @@ public class ContentReportController : ControllerBase
             var message = await _context.Messages.FindAsync(targetId);
             if (message != null) message.IsDeleted = true;
         }
+        else if (string.Equals(type, "FeedPost", StringComparison.OrdinalIgnoreCase))
+        {
+            var feedPost = await _context.FeedPosts.FindAsync(targetId);
+            if (feedPost != null) feedPost.IsModerationBlocked = blocked;
+        }
     }
 
     // ── Suspend User ─────────────────────────────────────────────────
@@ -511,6 +516,13 @@ public class ContentReportController : ControllerBase
             {
                 return await ResolveArtistOwnerUserId(artistId.Value);
             }
+        }
+        if (string.Equals(type, "FeedPost", StringComparison.OrdinalIgnoreCase))
+        {
+            return await _context.FeedPosts
+                .Where(p => p.FeedPostID == targetId)
+                .Select(p => (int?)p.AuthorUserID)
+                .FirstOrDefaultAsync();
         }
 
         return null;

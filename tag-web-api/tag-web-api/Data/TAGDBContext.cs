@@ -172,6 +172,11 @@ namespace TAGWEBAPI.Data
         public DbSet<ContentReportLabel> ContentReportLabels { get; set; }
 
         public DbSet<ModerationAction> ModerationActions { get; set; }
+
+        public DbSet<FeedPost> FeedPosts { get; set; }
+
+        public DbSet<FeedPostImpression> FeedPostImpressions { get; set; }
+
         /// <inheritdoc/>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
