@@ -22,5 +22,6 @@ public enum TargetType
     Artist = 2,
     Comment = 3,
     Blog = 4,
-    Message = 5
+    Message = 5,
+    FeedPost = 6
 }

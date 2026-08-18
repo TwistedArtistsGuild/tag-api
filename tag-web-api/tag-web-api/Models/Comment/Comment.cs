@@ -51,5 +51,6 @@ public enum CommentTargetType
     Listing = 2,
     Blog = 3,
     News = 4,
-    User = 5
+    User = 5,
+    FeedPost = 6
 }

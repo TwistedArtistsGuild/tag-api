@@ -80,6 +80,12 @@ public class ImpressionController : ControllerBase
                         .Where(mi => mi.MessageId == targetId && mi.ImpressionId == impression.Id)
                         .CountAsync();
                 }
+                else if (targetType == TargetType.FeedPost)
+                {
+                    count = await _context.FeedPostImpressions
+                        .Where(fi => fi.FeedPostId == targetId && fi.ImpressionId == impression.Id)
+                        .CountAsync();
+                }
 
                 result.Add(new PrimaryImpressionDto
                 {
@@ -373,6 +379,38 @@ public class ImpressionController : ControllerBase
                     removed = wasRemoved 
                 });
             }
+            else if (request.TargetType == TargetType.FeedPost)
+            {
+                // Check if user already reacted with this impression
+                var existingFeedReaction = await _context.FeedPostImpressions
+                    .FirstOrDefaultAsync(i => i.FeedPostId == request.TargetId && i.ImpressionId == request.ImpressionId && i.UserId == request.UserId);
+
+                var wasRemoved = false;
+
+                if (existingFeedReaction != null)
+                {
+                    // Remove the reaction (toggle off)
+                    _context.FeedPostImpressions.Remove(existingFeedReaction);
+                    await _context.SaveChangesAsync();
+                    wasRemoved = true;
+                }
+                else
+                {
+                    // Add new reaction
+                    var newReaction = new FeedPostImpression
+                    {
+                        FeedPostId = request.TargetId,
+                        ImpressionId = request.ImpressionId,
+                        UserId = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.FeedPostImpressions.Add(newReaction);
+                    await _context.SaveChangesAsync();
+                }
+
+                return Ok(new { message = wasRemoved ? "Reaction removed" : "Reaction added", removed = wasRemoved });
+            }
             else
             {
                 return BadRequest("Invalid target type");
@@ -416,6 +454,16 @@ public class ImpressionController : ControllerBase
                 .AsNoTracking()
                 .Where(blog => blog.BlogID == targetId)
                 .Select(blog => blog.UserID)
+                .Distinct()
+                .ToListAsync();
+        }
+        else if (targetType == TargetType.FeedPost)
+        {
+            // For FeedPost, assume the owner is the one who posted it, i.e., the UserID in the FeedPost table
+            ownerUserIds = await _context.FeedPosts
+                .AsNoTracking()
+                .Where(feedPost => feedPost.FeedPostID == targetId)
+                .Select(feedPost => feedPost.AuthorUserID)
                 .Distinct()
                 .ToListAsync();
         }
@@ -585,6 +633,11 @@ public class ImpressionController : ControllerBase
             {
                 return $"/blogs/{blogPath}";
             }
+        }
+
+        if (targetType == TargetType.FeedPost)
+        {
+            return $"/feed?post={targetId}";
         }
 
         return "/artists";
